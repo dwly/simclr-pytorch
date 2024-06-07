@@ -224,7 +224,7 @@ def main_worker(gpu, ngpus, args):
                 break
 
             start_time = time.time()
-    print("epoch:",epoch+1)
+        print("epoch:",epoch+1)
     save_checkpoint(args.root, model, optimizer)
 
     if args.dist == 'ddp':
