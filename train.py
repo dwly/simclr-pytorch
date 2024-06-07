@@ -155,7 +155,7 @@ def main_worker(gpu, ngpus, args):
 
     continue_training = args.iters != 0
     data_time, it_time = 0, 0
-
+    epoch = 0
     while continue_training:
         train_logs = []
         model.train()
@@ -224,7 +224,7 @@ def main_worker(gpu, ngpus, args):
                 break
 
             start_time = time.time()
-
+    print("epoch:",epoch+1)
     save_checkpoint(args.root, model, optimizer)
 
     if args.dist == 'ddp':
