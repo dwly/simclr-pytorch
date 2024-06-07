@@ -20,8 +20,8 @@ class EncodeProject(nn.Module):
         if hparams.arch == 'ResNet50':
             cifar_head = (hparams.data == 'cifar')
             self.convnet = models.resnet.ResNet50(cifar_head=cifar_head, hparams=hparams)
-            # self.encoder_dim = 2048
-            self.encoder_dim = 1024
+            self.encoder_dim = 2048
+            # self.encoder_dim = 1024
         elif hparams.arch == 'resnet18':
             self.convnet = models.resnet.ResNet18(cifar_head=(hparams.data == 'cifar'))
             self.encoder_dim = 512
