@@ -37,11 +37,13 @@ class ResNetEncoder(models.resnet.ResNet):
         self.pyramid_conv5 = nn.Conv2d(2048, 1024, kernel_size=1, stride=1, bias=False)
 
         self.pyramid_conv4 = nn.Conv2d(1024, 1024, kernel_size=1, stride=1, bias=False)
-        # self.pyramid_conv2 = nn.Conv2d(512, 256, kernel_size=1, stride=1, bias=False)
-        # self.pyramid_conv3 = nn.Conv2d(256, 256, kernel_size=1, stride=1, bias=False)
-        self.convC5 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
-        self.conv332 = nn.Conv2d(1024, 2048, kernel_size=3, stride=2, bias=False)
-        self.conv33 = nn.Conv2d(2048, 2048,kernel_size=3, stride=1, bias=False)
+        # self.pyramid_conv3 = nn.Conv2d(512, 256, kernel_size=1, stride=1, bias=False)
+        # self.pyramid_conv2 = nn.Conv2d(256, 256, kernel_size=1, stride=1, bias=False)
+        # self.convC5 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
+        # self.conv332 = nn.Conv2d(1024, 2048, kernel_size=3, stride=2, bias=False)
+        # self.conv22 = nn.Conv2d(1024, 2048,kernel_size=2, stride=1, bias=False)
+        # self.conv11 = nn.Conv2d(1024,2048,kernel_size=1, stride=1, bias=False)
+        # self.conv33 = nn.Conv2d(2048, 2048,kernel_size=3, stride=1, bias=False)
         print('** Using avgpool **')
 
     def forward(self, x):
@@ -59,18 +61,27 @@ class ResNetEncoder(models.resnet.ResNet):
         # 1x1卷积
         p5 = self.pyramid_conv5(c5)
         p4 = self.pyramid_conv4(c4)
+        # p3 = self.pyramid_conv3(c3)
+        # p2 = self.pyramid_conv2(c2)
 
         # 从高层到低层进行上采样和融合
         p4 = p4 + F.interpolate(p5, scale_factor=2, mode='nearest')
+
+        # p3 = p3 + F.interpolate(p4, scale_factor=2, mode='nearest')
+        # 融合后的p4进行下采样
+        l4 = self.layer4(p4)
+        l5 = l4 + c5
 
         # 对融合后的特征，进行恢复到c5的channel、size、分辨率
         # # channel恢复到2048
         # l5 = self.convC5(p4)
 
-        #p4先经过3x3的卷积，stride=2
-        l4 = self.conv332(p4)
-        #相加后，再经过3x3的卷积
-        l5 = self.conv33(l4+p5)
+        # #p4先经过3x3的卷积，stride=2,下采样
+        # l4 = self.conv332(p4)
+        # #相加后，再经过3x3的卷积
+        # l5 = self.conv22(p5)
+        #
+        # out = self.conv33(l4+l5)
 
         #是否加非线性
         # out = self.relu(l5)
