@@ -39,7 +39,7 @@ class ResNetEncoder(models.resnet.ResNet):
         self.pyramid_conv4 = nn.Conv2d(1024, 1024, kernel_size=1, stride=1, bias=False)
         # self.pyramid_conv3 = nn.Conv2d(512, 256, kernel_size=1, stride=1, bias=False)
         # self.pyramid_conv2 = nn.Conv2d(256, 256, kernel_size=1, stride=1, bias=False)
-        # self.convC5 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
+        self.convC5 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
         # self.conv332 = nn.Conv2d(1024, 2048, kernel_size=3, stride=2, bias=False)
         # self.conv22 = nn.Conv2d(1024, 2048,kernel_size=2, stride=1, bias=False)
         # self.conv11 = nn.Conv2d(1024,2048,kernel_size=1, stride=1, bias=False)
@@ -68,9 +68,16 @@ class ResNetEncoder(models.resnet.ResNet):
         p4 = p4 + F.interpolate(p5, scale_factor=2, mode='nearest')
 
         # p3 = p3 + F.interpolate(p4, scale_factor=2, mode='nearest')
-        # 融合后的p4进行下采样
-        l4 = self.layer4(p4)
-        l5 = l4 + c5
+        #对融合后p4下采样，再和p5进行concat
+        l4 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
+        l5 = torch.cat((l4, p5), dim=1)
+
+        # #对融合后p4下采样,再和p5进行add,并转化channel为2048
+        # l5 = self.convC5(l4 + p5)
+
+        # # 融合后的p4进行下采样
+        # l4 = self.layer4(p4)
+        # l5 = l4 + c5
 
         # 对融合后的特征，进行恢复到c5的channel、size、分辨率
         # # channel恢复到2048
