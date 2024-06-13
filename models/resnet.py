@@ -34,9 +34,9 @@ class ResNetEncoder(models.resnet.ResNet):
         self.hparams = hparams
         # 添加额外的卷积层用于构建特征金字塔
         # 添加额外的卷积层用于构建特征金字塔
-        self.pyramid_conv5 = nn.Conv2d(2048, 1024, kernel_size=1, stride=1, bias=False)
+        self.pyramid_conv5 = nn.Conv2d(2048, 2048, kernel_size=1, stride=1, bias=False)
 
-        self.pyramid_conv4 = nn.Conv2d(1024, 1024, kernel_size=1, stride=1, bias=False)
+        self.pyramid_conv4 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
         # self.pyramid_conv3 = nn.Conv2d(512, 256, kernel_size=1, stride=1, bias=False)
         # self.pyramid_conv2 = nn.Conv2d(256, 256, kernel_size=1, stride=1, bias=False)
         self.convC5 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
@@ -64,16 +64,19 @@ class ResNetEncoder(models.resnet.ResNet):
         # p3 = self.pyramid_conv3(c3)
         # p2 = self.pyramid_conv2(c2)
 
-        # 从高层到低层进行上采样和融合
-        p4 = p4 + F.interpolate(p5, scale_factor=2, mode='nearest')
+        # 直接用c5上采样，加上p4
+        p4 = p4 + F.interpolate(c5, scale_factor=2, mode='nearest')
+        l5 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
 
-        # p3 = p3 + F.interpolate(p4, scale_factor=2, mode='nearest')
-        #对融合后p4下采样，再和p5进行concat
-        l4 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
+        # # 从高层到低层进行上采样和融合
+        # p4 = p4 + F.interpolate(p5, scale_factor=2, mode='nearest')
+
+        # #对融合后p4下采样，再和p5进行concat
+        # l4 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
         # l5 = torch.cat((l4, p5), dim=1)
 
         # #对融合后p4下采样,再和p5进行add,并转化channel为2048
-        l5 = self.convC5(l4 + p5)
+        # l5 = self.convC5(l4 + p5)
 
         # # 融合后的p4进行下采样
         # l4 = self.layer4(p4)
