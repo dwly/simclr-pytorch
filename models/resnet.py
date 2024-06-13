@@ -70,10 +70,10 @@ class ResNetEncoder(models.resnet.ResNet):
         # p3 = p3 + F.interpolate(p4, scale_factor=2, mode='nearest')
         #对融合后p4下采样，再和p5进行concat
         l4 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
-        l5 = torch.cat((l4, p5), dim=1)
+        # l5 = torch.cat((l4, p5), dim=1)
 
         # #对融合后p4下采样,再和p5进行add,并转化channel为2048
-        # l5 = self.convC5(l4 + p5)
+        l5 = self.convC5(l4 + p5)
 
         # # 融合后的p4进行下采样
         # l4 = self.layer4(p4)
