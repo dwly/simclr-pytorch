@@ -34,16 +34,27 @@ class ResNetEncoder(models.resnet.ResNet):
         self.hparams = hparams
         # 添加额外的卷积层用于构建特征金字塔
         # 添加额外的卷积层用于构建特征金字塔
-        self.pyramid_conv5 = nn.Conv2d(2048, 2048, kernel_size=1, stride=1, bias=False)
+        self.pyramid_conv5 = nn.Conv2d(2048, 256, kernel_size=1, stride=1, bias=False)
 
-        self.pyramid_conv4 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
-        # self.pyramid_conv3 = nn.Conv2d(512, 256, kernel_size=1, stride=1, bias=False)
-        # self.pyramid_conv2 = nn.Conv2d(256, 256, kernel_size=1, stride=1, bias=False)
+        self.pyramid_conv4 = nn.Conv2d(1024, 256, kernel_size=1, stride=1, bias=False)
+        self.pyramid_conv3 = nn.Conv2d(512, 256, kernel_size=1, stride=1, bias=False)
+        self.pyramid_conv2 = nn.Conv2d(256, 256, kernel_size=1, stride=1, bias=False)
         self.convC5 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
-        # self.conv332 = nn.Conv2d(1024, 2048, kernel_size=3, stride=2, bias=False)
+        # self.conv332 = nn.Conv2d(256, 256, kernel_size=3, stride=2, bias=False)
         # self.conv22 = nn.Conv2d(1024, 2048,kernel_size=2, stride=1, bias=False)
         # self.conv11 = nn.Conv2d(1024,2048,kernel_size=1, stride=1, bias=False)
         # self.conv33 = nn.Conv2d(2048, 2048,kernel_size=3, stride=1, bias=False)
+        #3X3卷积融合特征
+        self.smooth1 = nn.Conv2d(256, 256, 3, 1, 1)
+        self.smooth2 = nn.Conv2d(256, 256, 3, 1, 1)
+        self.smooth3 = nn.Conv2d(256, 256, 3, 1, 1)
+        self.smooth4 = nn.Conv2d(256, 256, 3, 1, 1)
+        #PAnet融合
+        self.paconv = nn.Conv2d(256, 256, kernel_size=3, stride=2, bias=False)
+        self.arrage3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, bias=False)
+        self.arrage4 = nn.Conv2d(256, 256, kernel_size=3, stride=1, bias=False)
+        self.arrage5 = nn.Conv2d(256, 2048, kernel_size=3, stride=1, bias=False)
+
         print('** Using avgpool **')
 
     def forward(self, x):
@@ -59,17 +70,34 @@ class ResNetEncoder(models.resnet.ResNet):
         c5 = self.layer4(c4)
 
         # 1x1卷积
-        p5 = self.pyramid_conv5(c5)
-        p4 = self.pyramid_conv4(c4)
-        # p3 = self.pyramid_conv3(c3)
-        # p2 = self.pyramid_conv2(c2)
+        m5 = self.pyramid_conv5(c5)
+        m4 = self.pyramid_conv4(c4)
+        m3 = self.pyramid_conv3(c3)
+        # m2 = self.pyramid_conv2(c2)
 
         # 直接用c5上采样，加上p4
-        p4 = p4 + F.interpolate(c5, scale_factor=2, mode='nearest')
-        l5 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
+        # p4 = p4 + F.interpolate(c5, scale_factor=2, mode='nearest')
+
+        # l5 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
 
         # # 从高层到低层进行上采样和融合
-        # p4 = p4 + F.interpolate(p5, scale_factor=2, mode='nearest')
+        m4 = m4 + F.interpolate(m5, scale_factor=2, mode='nearest')
+        m3 = m3 + F.interpolate(m4, scale_factor=2, mode='nearest')
+        # m2 = m2 + F.interpolate(m3, scale_factor=2, mode='nearest')
+
+
+        p5 = self.smooth4(m5)
+        p4 = self.smooth1(m4)
+        p3 = self.smooth2(m3)
+        # p2 = self.smooth3(m2)
+
+        # p3 = self.arrage3(p3 + self.paconv(p2))
+        p4 = self.arrage4(p4 + self.paconv(p3))
+        p5 = self.arrage5(p5 + self.paconv(p4))
+
+        #对融合后的p4、p5进行concat
+
+
 
         # #对融合后p4下采样，再和p5进行concat
         # l4 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
@@ -95,7 +123,8 @@ class ResNetEncoder(models.resnet.ResNet):
 
         #是否加非线性
         # out = self.relu(l5)
-        out = self.avgpool(l5)
+        # out = self.avgpool(l5)
+        out = self.avgpool(p5)
         out = torch.flatten(out, 1)
 
         return out
