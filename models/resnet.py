@@ -53,7 +53,7 @@ class ResNetEncoder(models.resnet.ResNet):
         self.paconv = nn.Conv2d(256, 256, kernel_size=3, stride=2, bias=False)
         self.arrage3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, bias=False)
         self.arrage4 = nn.Conv2d(256, 256, kernel_size=3, stride=1, bias=False)
-        self.arrage5 = nn.Conv2d(256, 256, kernel_size=3, stride=1, bias=False)
+        self.arrage5 = nn.Conv2d(256, 2048, kernel_size=3, stride=1, bias=False)
 
         print('** Using avgpool **')
 
@@ -95,6 +95,7 @@ class ResNetEncoder(models.resnet.ResNet):
         p4 = self.arrage4(p4 + self.paconv(p3))
         p5 = self.arrage5(p5 + self.paconv(p4))
 
+        #对融合后的p4、p5进行concat
 
 
 
