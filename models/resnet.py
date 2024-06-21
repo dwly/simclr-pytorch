@@ -44,6 +44,9 @@ class ResNetEncoder(models.resnet.ResNet):
         self.latlayer1 = nn.Conv2d(1024, 256, 1, 1, 0)
         self.latlayer2 = nn.Conv2d(512, 256, 1, 1, 0)
         self.latlayer3 = nn.Conv2d(256, 256, 1, 1, 0)
+        #采用转置卷积进行上采样
+        self.upsample = nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=3, stride=2, padding=1)
+
 
         self.convC5 = nn.Conv2d(1024, 2048, kernel_size=1, stride=1, bias=False)
         # self.conv332 = nn.Conv2d(256, 256, kernel_size=3, stride=2, bias=False)
@@ -87,17 +90,17 @@ class ResNetEncoder(models.resnet.ResNet):
         # l5 = F.interpolate(p4, scale_factor=0.5, mode='nearest')
 
         # 从高层到低层进行上采样和融合
-        m4 = m4 + F.interpolate(m5, scale_factor=2, mode='nearest')
-        m3 = m3 + F.interpolate(m4, scale_factor=2, mode='nearest')
-        m2 = m2 + F.interpolate(m3, scale_factor=2, mode='nearest')
+        # m4 = m4 + F.interpolate(m5, scale_factor=2, mode='nearest')
+        # m3 = m3 + F.interpolate(m4, scale_factor=2, mode='nearest')
+        # m2 = m2 + F.interpolate(m3, scale_factor=2, mode='nearest')
 
-        #look at more times from https://cloud.tencent.com/developer/article/1639306 [DetectoRS]
+        #上采样采用转置卷积
+        m4 = m4 + self.upsample(m5)
+        m3 = m3 + self.upsample(m4)
+        m2 = m2 + self.upsample(m3)
+
+        #look more times from https://cloud.tencent.com/developer/article/1639306 [DetectoRS]
         p2 = c2 + m2
-        # p3 = c3 + m3
-        # p4 = c4 + m4
-
-
-        # l2 = self.layer1(p2)
         p3 = self.layer2(p2)
         p4 = self.layer3(p3+m3)
         p5 = self.layer4(p4+m4)
