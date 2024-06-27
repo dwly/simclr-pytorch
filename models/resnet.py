@@ -66,7 +66,7 @@ class ResNetEncoder(models.resnet.ResNet):
         # self.calllatlayer3 = nn.Conv2d(256, 256, 1, 1, 0)
 
         self.convC5 = nn.Conv2d(256, 512, kernel_size=1, stride=1, bias=False)
-        # self.conv332 = nn.Conv2d(256, 256, kernel_size=3, stride=2, bias=False)
+        self.conv332 = nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1)
         # self.conv22 = nn.Conv2d(1024, 2048,kernel_size=2, stride=1, bias=False)
         # self.conv11 = nn.Conv2d(1024,2048,kernel_size=1, stride=1, bias=False)
         # self.conv33 = nn.Conv2d(2048, 2048,kernel_size=3, stride=1, bias=False)
@@ -117,9 +117,9 @@ class ResNetEncoder(models.resnet.ResNet):
 
         #上采样采用转置卷积
         # l4 = self.upsample(m5)
-        m4 = m4 + self.relu(self.bnlayer1(self.upsample(m5)))
+        m4 = m4 + self.bnlayer1(self.upsample(m5))
         m3 = m3 + self.relu(self.bnlayer1(self.upsample(m4)))
-        m2 = m2 + self.relu(self.bnlayer1(self.upsample(m3)))
+        m2 = m2 + self.bnlayer1(self.upsample(m3))
 
 
         #look more times from https://cloud.tencent.com/developer/article/1639306 [DetectoRS]
@@ -149,11 +149,15 @@ class ResNetEncoder(models.resnet.ResNet):
         # l5 = self.smooth4(m5)
         #
 
-        l3 = l3 + self.maxpool1(l2+c2)
+        # l3 = l3 + self.maxpool1(l2+c2)
+
+        l3 = l3 + self.bnlayer1(self.conv332(l2+c2))
         # l3 = self.smooth1(l3)
-        l4 = l4 + self.maxpool1(l3+m3)
+        # l4 = l4 + self.maxpool1(l3+m3)
+        l4 = l4 + self.relu(self.bnlayer1(self.conv332(l3+m3)))
         # l4 = self.smooth2(l4)
-        l5 = l5 + self.maxpool1(l4+m4)
+        # l5 = l5 + self.maxpool1(l4+m4)
+        l5 = l5 +self.bnlayer1(self.conv332(l4+m4))
         # l5 = l5 + self.maxpool1(l4) + self.maxpool1(m4)
 
         # l3 = l3 + F.interpolate(l2, scale_factor=0.5, mode='nearest')
