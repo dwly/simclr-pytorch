@@ -48,6 +48,10 @@ class ResNetEncoder(models.resnet.ResNet):
         self.latlayer3 = nn.Conv2d(256, 256, 1, 1, 0)
         #采用转置卷积进行上采样
         self.upsample = nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=3, stride=2, padding=1,output_padding=1)
+        #上採樣
+        # self.upsample4 = nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=3, stride=4, padding=1,output_padding=3)
+        #卷積下採樣
+        # self.downsample4 = nn.Conv2d(256, 1024, 3, 4, 0)
         #横向链接
         self.latconnect = nn.Conv2d(256, 256, 1, 1, 0)
         #最大池化下采样
@@ -56,6 +60,9 @@ class ResNetEncoder(models.resnet.ResNet):
         self.smooth5 = nn.Conv2d(256, 2048, 3, 1, 1)
 
         self.bnlayer1 = self._norm_layer(256)
+        # self.bnlayer2 = self._norm_layer(1024)
+
+        # self.fc = nn.Linear(2048*256,2048)
         # self.bnlayer2 = self._norm_layer(512)
         # self.bnlayer3 = self._norm_layer(1024)
 
@@ -95,8 +102,10 @@ class ResNetEncoder(models.resnet.ResNet):
             x = self.maxpool(x)
 
         c2 = self.layer1(x)
+        # t2 = self.bnlayer2(self.downsample4(c2))
         c3 = self.layer2(c2)
         c4 = self.layer3(c3)
+        # c5 = self.layer4(c4+t2)
         c5 = self.layer4(c4)
 
         # 1x1卷积
@@ -117,8 +126,9 @@ class ResNetEncoder(models.resnet.ResNet):
 
         #上采样采用转置卷积
         # l4 = self.upsample(m5)
+        # t = self.upsample4(m5)
         m4 = m4 + self.bnlayer1(self.upsample(m5))
-        m3 = m3 + self.relu(self.bnlayer1(self.upsample(m4)))
+        m3 = m3 + self.bnlayer1(self.upsample(m4))
         m2 = m2 + self.bnlayer1(self.upsample(m3))
 
 
@@ -149,15 +159,15 @@ class ResNetEncoder(models.resnet.ResNet):
         # l5 = self.smooth4(m5)
         #
 
-        # l3 = l3 + self.maxpool1(l2+c2)
+        l3 = l3 + self.maxpool1(l2+c2)
 
-        l3 = l3 + self.bnlayer1(self.conv332(l2+c2))
+        # l3 = l3 + self.bnlayer1(self.conv332(l2+c2))
         # l3 = self.smooth1(l3)
-        # l4 = l4 + self.maxpool1(l3+m3)
-        l4 = l4 + self.relu(self.bnlayer1(self.conv332(l3+m3)))
+        l4 = l4 + self.maxpool1(l3+m3)
+        # l4 = l4 + self.relu(self.bnlayer1(self.conv332(l3+m3)))
         # l4 = self.smooth2(l4)
-        # l5 = l5 + self.maxpool1(l4+m4)
-        l5 = l5 +self.bnlayer1(self.conv332(l4+m4))
+        l5 = l5 + self.maxpool1(l4+m4)
+        # l5 = l5 +self.bnlayer1(self.conv332(l4+m4))
         # l5 = l5 + self.maxpool1(l4) + self.maxpool1(m4)
 
         # l3 = l3 + F.interpolate(l2, scale_factor=0.5, mode='nearest')
@@ -165,7 +175,8 @@ class ResNetEncoder(models.resnet.ResNet):
         # l5 = l5 + F.interpolate(l4, scale_factor=0.5, mode='nearest')
 
         # l6 = l6 + self.maxpool1(l5)
-        p5 = self.smooth5(l5)
+        p5 = self.smooth5(l5+m5)
+        # p5 = self.smooth5(l5)
         # p5 = c5 + p5
 
         # p5 = self.smooth4(m5)
@@ -176,7 +187,9 @@ class ResNetEncoder(models.resnet.ResNet):
         # l3 = self.layer2(l2)
         # l4 = self.layer3(l3)
         # l5 = self.layer4(l4)
-        p5 = self.bnlayer(p5)
+        p5 = self.bnlayer(p5) + c5
+        # p5 = self.bnlayer(p5)
+
 
         # p3 = self.arrage3(p3 + self.paconv(p2))
         # p4 = self.arrage4(p4 + self.paconv(p3))
@@ -213,7 +226,7 @@ class ResNetEncoder(models.resnet.ResNet):
         # out = self.avgpool(l5)
         out = self.avgpool(p5)
         out = torch.flatten(out, 1)
-
+        # out = self.fc(out)
 
         return out
 
