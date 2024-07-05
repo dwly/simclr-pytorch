@@ -41,25 +41,35 @@ class ResNetEncoder(models.resnet.ResNet):
         # self.pyramid_conv4 = nn.Conv2d(1024, 256, kernel_size=1, stride=1, bias=False)
         # self.pyramid_conv3 = nn.Conv2d(512, 256, kernel_size=1, stride=1, bias=False)
         # self.pyramid_conv2 = nn.Conv2d(256, 256, kernel_size=1, stride=1, bias=False)
+
         # 1.横向连接，保证通道数相同
-        self.toplayer = nn.Conv2d(2048, 256, 1, 1, 0)
-        self.latlayer1 = nn.Conv2d(1024, 256, 1, 1, 0)
-        self.latlayer2 = nn.Conv2d(512, 256, 1, 1, 0)
-        self.latlayer3 = nn.Conv2d(256, 256, 1, 1, 0)
+        # self.toplayer = nn.Conv2d(2048, 256, 1, 1, 0)
+        # self.latlayer1 = nn.Conv2d(1024, 256, 1, 1, 0)
+        # self.latlayer2 = nn.Conv2d(512, 256, 1, 1, 0)
+        # self.latlayer3 = nn.Conv2d(256, 256, 1, 1, 0)
+        self.toplayer = nn.Conv2d(2048, 512, 1, 1, 0)
+        self.latlayer1 = nn.Conv2d(1024, 512, 1, 1, 0)
+        self.latlayer2 = nn.Conv2d(512, 512, 1, 1, 0)
+
+
         #采用转置卷积进行上采样
-        self.upsample = nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=3, stride=2, padding=1,output_padding=1)
+        # self.upsample = nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=3, stride=2, padding=1,output_padding=1)
+        self.upsample = nn.ConvTranspose2d(in_channels=512, out_channels=512, kernel_size=3, stride=2, padding=1,output_padding=1)
         #上採樣
         # self.upsample4 = nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=3, stride=4, padding=1,output_padding=3)
         #卷積下採樣
         # self.downsample4 = nn.Conv2d(256, 1024, 3, 4, 0)
         #横向链接
-        self.latconnect = nn.Conv2d(256, 256, 1, 1, 0)
+        # self.latconnect = nn.Conv2d(256, 256, 1, 1, 0)
+        self.latconnect = nn.Conv2d(512, 512, 1, 1, 0)
         #最大池化下采样
         self.maxpool1 = nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
         self.bnlayer = self._norm_layer(2048)
-        self.smooth5 = nn.Conv2d(256, 2048, 3, 1, 1)
+        # self.smooth5 = nn.Conv2d(256, 2048, 3, 1, 1)
+        self.smooth5 = nn.Conv2d(512, 2048, 3, 1, 1)
 
-        self.bnlayer1 = self._norm_layer(256)
+        # self.bnlayer1 = self._norm_layer(256)
+        self.bnlayer1 = self._norm_layer(512)
         # self.bnlayer2 = self._norm_layer(1024)
 
         # self.fc = nn.Linear(2048*256,2048)
@@ -112,7 +122,7 @@ class ResNetEncoder(models.resnet.ResNet):
         m5 = self.toplayer(c5)
         m4 = self.latlayer1(c4)
         m3 = self.latlayer2(c3)
-        m2 = self.latlayer3(c2)
+        # m2 = self.latlayer3(c2)
 
         # 直接用c5上采样，加上p4
         # p4 = p4 + F.interpolate(c5, scale_factor=2, mode='nearest')
@@ -128,8 +138,8 @@ class ResNetEncoder(models.resnet.ResNet):
         # l4 = self.upsample(m5)
         # t = self.upsample4(m5)
         m4 = m4 + self.bnlayer1(self.upsample(m5))
-        m3 = m3 + self.bnlayer1(self.upsample(m4))
-        m2 = m2 + self.bnlayer1(self.upsample(m3))
+        m3 = m3 + self.relu(self.bnlayer1(self.upsample(m4)))
+        # m2 = m2 + self.bnlayer1(self.upsample(m3))
 
 
         #look more times from https://cloud.tencent.com/developer/article/1639306 [DetectoRS]
@@ -147,7 +157,7 @@ class ResNetEncoder(models.resnet.ResNet):
         #from http://html.rhhz.net/GDGYDXXB/html/1621904024985-574459568.htm
         # m6 = self.maxpool1(m5)
 
-        l2 = self.latconnect(m2)
+        # l2 = self.latconnect(m2)
         l3 = self.latconnect(m3)
         l4 = self.latconnect(m4)
         l5 = self.latconnect(m5)
@@ -159,11 +169,12 @@ class ResNetEncoder(models.resnet.ResNet):
         # l5 = self.smooth4(m5)
         #
 
-        l3 = l3 + self.maxpool1(l2+c2)
+        # l3 = l3 + self.maxpool1(l2+c2)
 
         # l3 = l3 + self.bnlayer1(self.conv332(l2+c2))
         # l3 = self.smooth1(l3)
-        l4 = l4 + self.maxpool1(l3+m3)
+        # l4 = l4 + self.maxpool1(l3+m3)
+        l4 = l4 + self.maxpool1(l3+c3)
         # l4 = l4 + self.relu(self.bnlayer1(self.conv332(l3+m3)))
         # l4 = self.smooth2(l4)
         l5 = l5 + self.maxpool1(l4+m4)
