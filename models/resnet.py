@@ -138,7 +138,7 @@ class ResNetEncoder(models.resnet.ResNet):
         # l4 = self.upsample(m5)
         # t = self.upsample4(m5)
         m4 = m4 + self.bnlayer1(self.upsample(m5))
-        m3 = m3 + self.relu(self.bnlayer1(self.upsample(m4)))
+        m3 = m3 + self.upsample_ours(m4)
         # m2 = m2 + self.bnlayer1(self.upsample(m3))
 
 
@@ -240,6 +240,13 @@ class ResNetEncoder(models.resnet.ResNet):
         # out = self.fc(out)
 
         return out
+
+    def upsample_ours(self, m4):
+        m4 = self.upsample(m4)
+        m4 = self.bnlayer1(m4)
+        m4 = self.relu(m4)
+        return m4
+
 
 class ResNet18(ResNetEncoder):
     def __init__(self, cifar_head=True):

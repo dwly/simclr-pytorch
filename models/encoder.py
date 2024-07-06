@@ -47,4 +47,4 @@ class EncodeProject(nn.Module):
         h = self.convnet(x)
         if out == 'h':
             return h
-        return self.projection(h)
+        return h,self.projection(h)
