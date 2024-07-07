@@ -207,10 +207,11 @@ class SimCLR(BaseSSL):
         # # 通常，KL散度是双向的，所以我们取平均值
         # kl_loss = kl_div / 2
         # ntxent_loss, acc = self.criterion(z)
-        # loss, acc = self.criterion(z)
-        loss, acc = self.Pearso(z)
+        loss, acc = self.criterion(z)
+        loss_p, acc_p = self.Pearso(z)
         # lambda_kl = 0.5  # 超参数，用于调节KL散度损失的权重
         # loss = ntxent_loss + lambda_kl * kl_loss
+        loss = 0.99 * loss + 0.01 * loss_p
         return {
             'loss': loss,
             'contrast_acc': acc,
