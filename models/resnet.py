@@ -137,7 +137,8 @@ class ResNetEncoder(models.resnet.ResNet):
         #上采样采用转置卷积
         # l4 = self.upsample(m5)
         # t = self.upsample4(m5)
-        m4 = m4 + self.bnlayer1(self.upsample(m5))
+        # m4 = m4 + self.bnlayer1(self.upsample(m5))
+        m4 = m4 + self.upsample_ours(m5)
         m3 = m3 + self.upsample_ours(m4)
         # m2 = m2 + self.bnlayer1(self.upsample(m3))
 

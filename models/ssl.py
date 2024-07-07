@@ -1,6 +1,8 @@
 from argparse import Namespace, ArgumentParser
 
 import os
+
+import diffdist
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -19,7 +21,9 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
 import copy
-
+from diffdist import extra_collectives
+from diffdist import functional
+from diffdist import modules
 class BaseSSL(nn.Module):
     """
     Inspired by the PYTORCH LIGHTNING https://pytorch-lightning.readthedocs.io/en/latest/
@@ -162,6 +166,12 @@ class SimCLR(BaseSSL):
             multiplier=hparams.multiplier,
             distributed=(hparams.dist == 'ddp'),
         )
+        self.probabilities = models.losses.Probability(
+            tau=hparams.temperature,
+            multiplier=hparams.multiplier,
+            distributed=(hparams.dist == 'ddp'),
+        )
+        self.latt = nn.Conv2d(2048, 128, 1, 1, 0)
 
     def reset_parameters(self):
         def conv2d_weight_truncated_normal_init(p):
@@ -184,42 +194,48 @@ class SimCLR(BaseSSL):
 
     def step(self, batch):
         x, _ = batch
-        h,z = self.model(x)
+        # h,z = self.model(x)
+        z = self.model(x)
         #获取概率分布
-        p_h = self.probabilities(h)
-        p_z = self.probabilities(z)
-        # 计算KL散度
-        kl_div = F.kl_div(p_h.log(), p_z, reduction='batchmean') + F.kl_div(p_z.log(), p_h, reduction='batchmean')
-        # 通常，KL散度是双向的，所以我们取平均值
-        kl_loss = kl_div / 2
-        ntxent_loss, acc = self.criterion(z)
-        lambda_kl = 0.5  # 超参数，用于调节KL散度损失的权重
-        loss = ntxent_loss + lambda_kl * kl_loss
+        # # p_h = self.probabilities(h)
+        # # p_z = self.probabilities(z)
+        # p_h = F.softmax(h)
+        # p_h = p_h.resize(128,128)
+        # p_z = F.softmax(z)
+        # # 计算KL散度
+        # kl_div = F.kl_div(p_h.log(), p_z, reduction='batchmean') + F.kl_div(p_z.log(), p_h, reduction='batchmean')
+        # # 通常，KL散度是双向的，所以我们取平均值
+        # kl_loss = kl_div / 2
+        # ntxent_loss, acc = self.criterion(z)
+        loss, acc = self.criterion(z)
+        # lambda_kl = 0.5  # 超参数，用于调节KL散度损失的权重
+        # loss = ntxent_loss + lambda_kl * kl_loss
         return {
             'loss': loss,
             'contrast_acc': acc,
         }
 
-    def probabilities(self, z):
-        z = F.normalize(z, p=2, dim=1) / np.sqrt(self.tau)
-        if self.distributed:
-            z_list = [torch.zeros_like(z) for _ in range(dist.get_world_size())]
-            # all_gather fills the list as [<proc0>, <proc1>, ...]
-            # TODO: try to rewrite it with pytorch official tools
-            z_list = diffdist.functional.all_gather(z_list, z)
-            # split it into [<proc0_aug0>, <proc0_aug1>, ..., <proc0_aug(m-1)>, <proc1_aug(m-1)>, ...]
-            z_list = [chunk for x in z_list for chunk in x.chunk(self.multiplier)]
-            # sort it to [<proc0_aug0>, <proc1_aug0>, ...] that simply means [<batch_aug0>, <batch_aug1>, ...] as expected below
-            z_sorted = []
-            for m in range(self.multiplier):
-                for i in range(dist.get_world_size()):
-                    z_sorted.append(z_list[i * self.multiplier + m])
-            z = torch.cat(z_sorted, dim=0)
-            n = z.shape[0]
-        logits = z @ z.t()
-        logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
-        logprob = F.softmax(logits, dim=1)
-        return logprob
+    # def probabilities(self, z):
+    #     tau=1
+    #     z = F.normalize(z, p=2, dim=1) / np.sqrt(tau)
+    #     if self.distributed:
+    #         z_list = [torch.zeros_like(z) for _ in range(dist.get_world_size())]
+    #         # all_gather fills the list as [<proc0>, <proc1>, ...]
+    #         # TODO: try to rewrite it with pytorch official tools
+    #         z_list = diffdist.functional.all_gather(z_list, z)
+    #         # split it into [<proc0_aug0>, <proc0_aug1>, ..., <proc0_aug(m-1)>, <proc1_aug(m-1)>, ...]
+    #         z_list = [chunk for x in z_list for chunk in x.chunk(self.multiplier)]
+    #         # sort it to [<proc0_aug0>, <proc1_aug0>, ...] that simply means [<batch_aug0>, <batch_aug1>, ...] as expected below
+    #         z_sorted = []
+    #         for m in range(self.multiplier):
+    #             for i in range(dist.get_world_size()):
+    #                 z_sorted.append(z_list[i * self.multiplier + m])
+    #         z = torch.cat(z_sorted, dim=0)
+    #         n = z.shape[0]
+    #     logits = z @ z.t()
+    #     logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
+    #     logprob = F.softmax(logits, dim=1)
+    #     return logprob
 
     def encode(self, x):
         return self.model(x, out='h')
