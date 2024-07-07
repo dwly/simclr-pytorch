@@ -166,12 +166,12 @@ class SimCLR(BaseSSL):
             multiplier=hparams.multiplier,
             distributed=(hparams.dist == 'ddp'),
         )
-        self.probabilities = models.losses.Probability(
+        self.Pearso = models.losses.Pearso(
             tau=hparams.temperature,
             multiplier=hparams.multiplier,
             distributed=(hparams.dist == 'ddp'),
         )
-        self.latt = nn.Conv2d(2048, 128, 1, 1, 0)
+        # self.latt = nn.Conv2d(2048, 128, 1, 1, 0)
 
     def reset_parameters(self):
         def conv2d_weight_truncated_normal_init(p):
@@ -207,7 +207,8 @@ class SimCLR(BaseSSL):
         # # 通常，KL散度是双向的，所以我们取平均值
         # kl_loss = kl_div / 2
         # ntxent_loss, acc = self.criterion(z)
-        loss, acc = self.criterion(z)
+        # loss, acc = self.criterion(z)
+        loss, acc = self.Pearso(z)
         # lambda_kl = 0.5  # 超参数，用于调节KL散度损失的权重
         # loss = ntxent_loss + lambda_kl * kl_loss
         return {
