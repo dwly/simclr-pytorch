@@ -225,22 +225,23 @@ class Prediction_loss(nn.Module):
     def forward(self, preds, targets, get_map=False):
         n = preds.shape[0]
         assert n % self.multiplier == 0
-        if self.distributed:
-            preds = self.method_distribute(preds)
-            targets = self.method_distribute(targets)
+        # if self.distributed:
+        #     preds = self.method_distribute(preds)
+        #     targets = self.method_distribute(targets)
         # 均值中心化
-        preds_mean = preds.mean(dim=1, keepdim=True)
-        targets_mean = targets.mean(dim=1, keepdim=True)
-
-        preds_centered = preds - preds_mean
-        targets_centered = targets - targets_mean
-        # 方差归一化
-        preds_std = preds_centered.std(dim=1, keepdim=True)
-        targets_std = targets_centered.std(dim=1, keepdim=True)
-        preds_normalized = preds_centered / (preds_std + 1e-6)  # 添加一个小的值以避免除以零
-        targets_normalized = targets_centered / (targets_std + 1e-6)
+        # preds_mean = preds.mean(dim=1, keepdim=True)
+        # targets_mean = targets.mean(dim=1, keepdim=True)
+        #
+        # preds_centered = preds - preds_mean
+        # targets_centered = targets - targets_mean
+        # # 方差归一化
+        # preds_std = preds_centered.std(dim=1, keepdim=True)
+        # targets_std = targets_centered.std(dim=1, keepdim=True)
+        # preds_normalized = preds_centered / (preds_std + 1e-6)  # 添加一个小的值以避免除以零
+        # targets_normalized = targets_centered / (targets_std + 1e-6)
         criterion = nn.MSELoss()
-        return criterion(preds_normalized, targets_normalized.detach())
+        # return criterion(preds_normalized, targets_normalized.detach())
+        return criterion(preds, targets.detach())
 
     def method_distribute(self, z):
         z_list = [torch.zeros_like(z) for _ in range(dist.get_world_size())]
