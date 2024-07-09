@@ -212,6 +212,7 @@ class SimCLR(BaseSSL):
         # lambda_kl = 0.5  # 超参数，用于调节KL散度损失的权重
         # loss = ntxent_loss + lambda_kl * kl_loss
         loss = 0.99 * loss + 0.01 * loss_p
+        # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
             'contrast_acc': acc,
