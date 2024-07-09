@@ -171,6 +171,12 @@ class SimCLR(BaseSSL):
             multiplier=hparams.multiplier,
             distributed=(hparams.dist == 'ddp'),
         )
+        self.prediction_loss = models.losses.Prediction_loss(
+            tau=hparams.temperature,
+            multiplier=hparams.multiplier,
+            distributed=(hparams.dist == 'ddp'),
+        )
+
         # self.latt = nn.Conv2d(2048, 128, 1, 1, 0)
 
     def reset_parameters(self):
@@ -191,41 +197,19 @@ class SimCLR(BaseSSL):
                 conv2d_weight_truncated_normal_init(m.weight)
             elif isinstance(m, nn.Linear):
                 linear_normal_init(m.weight)
-    def prediction_loss(self,preds, targets):
-        criterion = nn.MSELoss()
-        n = preds.shape[0]
-        assert n % self.multiplier == 0
-        preds = F.normalize(preds, p=2, dim=1)
-        targets = F.normalize(targets, p=2, dim=1)
-        if self.distributed:
-            preds = self.method_distribute(preds)
-            targets = self.method_distribute(targets)
-
-        return criterion(preds, targets.detach())
-
-    def method_distribute(self, z):
-        z_list = [torch.zeros_like(z) for _ in range(dist.get_world_size())]
-        # all_gather fills the list as [<proc0>, <proc1>, ...]
-        # TODO: try to rewrite it with pytorch official tools
-        z_list = diffdist.functional.all_gather(z_list, z)
-        # split it into [<proc0_aug0>, <proc0_aug1>, ..., <proc0_aug(m-1)>, <proc1_aug(m-1)>, ...]
-        z_list = [chunk for x in z_list for chunk in x.chunk(self.multiplier)]
-        # sort it to [<proc0_aug0>, <proc1_aug0>, ...] that simply means [<batch_aug0>, <batch_aug1>, ...] as expected below
-        z_sorted = []
-        for m in range(self.multiplier):
-            for i in range(dist.get_world_size()):
-                z_sorted.append(z_list[i * self.multiplier + m])
-        z = torch.cat(z_sorted, dim=0)
 
     def step(self, batch):
         x, _ = batch
-        z = self.model(x)
-        if args.gpu is not None:
-            x[0] = x[0].cuda(args.gpu, non_blocking=True)
-            x[1] = x[1].cuda(args.gpu, non_blocking=True)
-        pre1,z1 = self.model(x[0])
-        pre2,z2 = self.model(x[1])
-        pred_loss = self.prediction_loss(pre1,z2)+self.prediction_loss(pre2,z1)
+        pre,z = self.model(x)
+        # import train
+        # if train.args.gpu is not None:
+        z0 = z[0].cuda(0, non_blocking=True)
+        z1 = z[1].cuda(0, non_blocking=True)
+        pre0 = pre[0].cuda(0, non_blocking=True)
+        pre1 = pre[1].cuda(0, non_blocking=True)
+        # pre1,z1 = self.model(x[0])
+        # pre2,z2 = self.model(x[1])
+        pred_loss = self.prediction_loss(pre0,z1)+self.prediction_loss(pre1,z0)
         loss, acc = self.criterion(z)
         #计算预测损失
 
