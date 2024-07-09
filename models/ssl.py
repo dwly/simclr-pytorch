@@ -191,27 +191,47 @@ class SimCLR(BaseSSL):
                 conv2d_weight_truncated_normal_init(m.weight)
             elif isinstance(m, nn.Linear):
                 linear_normal_init(m.weight)
+    def prediction_loss(self,preds, targets):
+        criterion = nn.MSELoss()
+        n = preds.shape[0]
+        assert n % self.multiplier == 0
+        preds = F.normalize(preds, p=2, dim=1)
+        targets = F.normalize(targets, p=2, dim=1)
+        if self.distributed:
+            preds = self.method_distribute(preds)
+            targets = self.method_distribute(targets)
+
+        return criterion(preds, targets.detach())
+
+    def method_distribute(self, z):
+        z_list = [torch.zeros_like(z) for _ in range(dist.get_world_size())]
+        # all_gather fills the list as [<proc0>, <proc1>, ...]
+        # TODO: try to rewrite it with pytorch official tools
+        z_list = diffdist.functional.all_gather(z_list, z)
+        # split it into [<proc0_aug0>, <proc0_aug1>, ..., <proc0_aug(m-1)>, <proc1_aug(m-1)>, ...]
+        z_list = [chunk for x in z_list for chunk in x.chunk(self.multiplier)]
+        # sort it to [<proc0_aug0>, <proc1_aug0>, ...] that simply means [<batch_aug0>, <batch_aug1>, ...] as expected below
+        z_sorted = []
+        for m in range(self.multiplier):
+            for i in range(dist.get_world_size()):
+                z_sorted.append(z_list[i * self.multiplier + m])
+        z = torch.cat(z_sorted, dim=0)
 
     def step(self, batch):
         x, _ = batch
-        # h,z = self.model(x)
         z = self.model(x)
-        #获取概率分布
-        # # p_h = self.probabilities(h)
-        # # p_z = self.probabilities(z)
-        # p_h = F.softmax(h)
-        # p_h = p_h.resize(128,128)
-        # p_z = F.softmax(z)
-        # # 计算KL散度
-        # kl_div = F.kl_div(p_h.log(), p_z, reduction='batchmean') + F.kl_div(p_z.log(), p_h, reduction='batchmean')
-        # # 通常，KL散度是双向的，所以我们取平均值
-        # kl_loss = kl_div / 2
-        # ntxent_loss, acc = self.criterion(z)
+        if args.gpu is not None:
+            x[0] = x[0].cuda(args.gpu, non_blocking=True)
+            x[1] = x[1].cuda(args.gpu, non_blocking=True)
+        pre1,z1 = self.model(x[0])
+        pre2,z2 = self.model(x[1])
+        pred_loss = self.prediction_loss(pre1,z2)+self.prediction_loss(pre2,z1)
         loss, acc = self.criterion(z)
-        loss_p, acc_p = self.Pearso(z)
-        # lambda_kl = 0.5  # 超参数，用于调节KL散度损失的权重
-        # loss = ntxent_loss + lambda_kl * kl_loss
-        loss = 0.99 * loss + 0.01 * loss_p
+        #计算预测损失
+
+        # loss_p, acc_p = self.Pearso(z)
+        # loss = 0.99 * loss + 0.01 * loss_p
+        loss = 0.9 * loss + 0.1 * pred_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
