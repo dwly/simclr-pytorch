@@ -225,9 +225,9 @@ class Prediction_loss(nn.Module):
     def forward(self, preds, targets, get_map=False):
         n = preds.shape[0]
         assert n % self.multiplier == 0
-        # if self.distributed:
-        #     preds = self.method_distribute(preds)
-        #     targets = self.method_distribute(targets)
+        if self.distributed:
+            preds = self.method_distribute(preds)
+            targets = self.method_distribute(targets)
         # 均值中心化
         # preds_mean = preds.mean(dim=1, keepdim=True)
         # targets_mean = targets.mean(dim=1, keepdim=True)
@@ -255,4 +255,4 @@ class Prediction_loss(nn.Module):
         for m in range(self.multiplier):
             for i in range(dist.get_world_size()):
                 z_sorted.append(z_list[i * self.multiplier + m])
-        z = torch.cat(z_sorted, dim=0)
+        return torch.cat(z_sorted, dim=0)
