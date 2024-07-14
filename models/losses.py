@@ -81,8 +81,25 @@ class NTXent(nn.Module):
         # remove labels pointet to itself, i.e. (i, i)
         labels = labels.reshape(n, m)[:, 1:].reshape(-1)
 
+        # 选取贡献最大负样本
+        with torch.no_grad():
+
+            # 这里采用topk来选择每一行（即每个样本）中的前k个最高值
+            k = 100  # 设定你想选择的top-k负样本数量
+            topk_values, topk_indices = torch.topk(logits, k=k + 1, dim=1, largest=True, sorted=True)
+            # 因为对角线上的值被设为非常小的负数，topk的结果中第一个是自己，需要去掉
+            topk_values, topk_indices = topk_values[:, 1:], topk_indices[:, 1:]
+
+        # 负样本对数概率的贡献
+        negative_log_prob = -torch.logsumexp(topk_values, dim=1)
+        # 正样本对数概率的贡献
+        # 假设 labels 表示的是每个样本的正样本索引
+        positive_log_prob = log_prob[np.arange(n), labels].sum()
+        # 计算整个损失
+        loss = (negative_log_prob - positive_log_prob) / n
+
         # TODO: maybe different terms for each process should only be computed here...
-        loss = -logprob[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
+        # loss = -logprob[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
 
         # zero the probability of identical pairs
         pred = logprob.data.clone()
