@@ -73,7 +73,18 @@ class NTXent(nn.Module):
         logits = z @ z.t()
         logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
 
-        logprob = F.log_softmax(logits, dim=1)
+        # logprob = F.log_softmax(logits, dim=1)
+
+        # 选择每行（除自己）最大的100个相似度
+        topk_val, topk_idx = torch.topk(logits, k=101, dim=1)
+        # 去掉自己（最大的那个值，因为设置了-LARGE_NUMBER所以是第一个）
+        topk_val = topk_val[:, 1:]
+        topk_idx = topk_idx[:, 1:]
+        # 利用gather来重建相似度矩阵，只包含topk相似度
+        logits_topk = torch.zeros_like(logits)
+        logits_topk.scatter_(1, topk_idx, topk_val)
+        # 用上面的logits_topk计算softmax
+        logprob = F.log_softmax(logits_topk, dim=1)
 
         # choose all positive objects for an example, for i it would be (i + k * n/m), where k=0...(m-1)
         m = self.multiplier
@@ -81,25 +92,8 @@ class NTXent(nn.Module):
         # remove labels pointet to itself, i.e. (i, i)
         labels = labels.reshape(n, m)[:, 1:].reshape(-1)
 
-        # 选取贡献最大负样本
-        with torch.no_grad():
-
-            # 这里采用topk来选择每一行（即每个样本）中的前k个最高值
-            k = 100  # 设定你想选择的top-k负样本数量
-            topk_values, topk_indices = torch.topk(logits, k=k + 1, dim=1, largest=True, sorted=True)
-            # 因为对角线上的值被设为非常小的负数，topk的结果中第一个是自己，需要去掉
-            topk_values, topk_indices = topk_values[:, 1:], topk_indices[:, 1:]
-
-        # 负样本对数概率的贡献
-        negative_log_prob = -torch.logsumexp(topk_values, dim=1)
-        # 正样本对数概率的贡献
-        # 假设 labels 表示的是每个样本的正样本索引
-        positive_log_prob = log_prob[np.arange(n), labels].sum()
-        # 计算整个损失
-        loss = (negative_log_prob - positive_log_prob) / n
-
         # TODO: maybe different terms for each process should only be computed here...
-        # loss = -logprob[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
+        loss = -logprob[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
 
         # zero the probability of identical pairs
         pred = logprob.data.clone()
