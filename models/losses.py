@@ -73,17 +73,30 @@ class NTXent(nn.Module):
         logits = z @ z.t()
         logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
         logprob = F.log_softmax(logits, dim=1)
+        k=100
+        # 对每行（即每个样本对应的logits）选取最大的K个元素
+        topk_logits, _ = logits.topk(k + 1, dim=1, largest=True, sorted=False)
+        topk_logits[:, 0] = -self.LARGE_NUMBER  # 移除由于自相似排在第一位的元素
+        # 创建一个mask，其中仅Top-K logits为True，其他为False
+        mask = logits < topk_logits[:, -1, None]
+        # 在mask上应用非常小的值来忽略非Top-K的相似度
+        logits[mask] = -self.LARGE_NUMBER
+        # 计算softmax概率以及交叉熵损失
+        # probs = F.softmax(logits / self.tau, dim=1)
+        log_probs = F.log_softmax(logits, dim=1)
+        # log_probs = F.log_softmax(logits / self.tau, dim=1)
 
-        # 选择每行（除自己）最大的100个相似度
-        topk_val, topk_idx = torch.topk(logits, k=101, dim=1)
-        # 去掉自己（最大的那个值，因为设置了-LARGE_NUMBER所以是第一个）
-        topk_val = topk_val[:, 1:]
-        topk_idx = topk_idx[:, 1:]
-        # 利用gather来重建相似度矩阵，只包含topk相似度
-        logits_topk = torch.zeros_like(logits)
-        logits_topk.scatter_(1, topk_idx, topk_val)
-        # 用上面的logits_topk计算softmax
-        logprob_topk = F.log_softmax(logits_topk, dim=1)
+        # # 选择每行（除自己）最大的100个相似度
+        # topk_val, topk_idx = torch.topk(logits, k=101, dim=1)
+        # logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
+        # # 去掉自己（最大的那个值，因为设置了-LARGE_NUMBER所以是第一个）
+        # topk_val = topk_val[:, 1:]
+        # topk_idx = topk_idx[:, 1:]
+        # # 利用gather来重建相似度矩阵，只包含topk相似度
+        # logits_topk = torch.zeros_like(logits)
+        # logits_topk.scatter_(1, topk_idx, topk_val)
+        # # 用上面的logits_topk计算softmax
+        # logprob_topk = F.log_softmax(logits_topk, dim=1)
 
         # choose all positive objects for an example, for i it would be (i + k * n/m), where k=0...(m-1)
         m = self.multiplier
@@ -92,7 +105,8 @@ class NTXent(nn.Module):
         labels = labels.reshape(n, m)[:, 1:].reshape(-1)
 
         # TODO: maybe different terms for each process should only be computed here...
-        loss = -logprob_topk[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
+        # loss = -logprob_topk[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
+        loss = -log_probs[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
 
         # zero the probability of identical pairs
         pred = logprob.data.clone()
