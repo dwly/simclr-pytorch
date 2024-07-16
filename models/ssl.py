@@ -166,6 +166,11 @@ class SimCLR(BaseSSL):
             multiplier=hparams.multiplier,
             distributed=(hparams.dist == 'ddp'),
         )
+        self.criterionWithMargin = models.losses.NTXentWithMargin(
+            tau=hparams.temperature,
+            multiplier=hparams.multiplier,
+            distributed=(hparams.dist == 'ddp'),
+        )
         self.Pearso = models.losses.Pearso(
             tau=hparams.temperature,
             multiplier=hparams.multiplier,
@@ -200,22 +205,24 @@ class SimCLR(BaseSSL):
 
     def step(self, batch):
         x, _ = batch
-        pre,z = self.model(x)
+        z = self.model(x)
+        # pre,z = self.model(x)
         # import train
         # if train.args.gpu is not None:
-        z0 = z[0].cuda(0, non_blocking=True)
-        z1 = z[1].cuda(0, non_blocking=True)
-        pre0 = pre[0].cuda(0, non_blocking=True)
-        pre1 = pre[1].cuda(0, non_blocking=True)
+        # z0 = z[0].cuda(0, non_blocking=True)
+        # z1 = z[1].cuda(0, non_blocking=True)
+        # pre0 = pre[0].cuda(0, non_blocking=True)
+        # pre1 = pre[1].cuda(0, non_blocking=True)
         # pre1,z1 = self.model(x[0])
         # pre2,z2 = self.model(x[1])
-        pred_loss = self.prediction_loss(pre0,z1)+self.prediction_loss(pre1,z0)
-        loss, acc = self.criterion(z)
+        # pred_loss = self.prediction_loss(pre0,z1)+self.prediction_loss(pre1,z0)
+        # loss, acc = self.criterion(z)
+        loss, acc = self.criterionWithMargin(z)
         #计算预测损失
 
         # loss_p, acc_p = self.Pearso(z)
         # loss = 0.99 * loss + 0.01 * loss_p
-        loss = loss + 0.6 * pred_loss
+        # loss = loss + 0.6 * pred_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
