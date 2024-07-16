@@ -216,8 +216,8 @@ class SimCLR(BaseSSL):
         # pre1,z1 = self.model(x[0])
         # pre2,z2 = self.model(x[1])
         # pred_loss = self.prediction_loss(pre0,z1)+self.prediction_loss(pre1,z0)
-        # loss, acc = self.criterion(z)
-        loss, acc = self.criterionWithMargin(z)
+        loss, acc = self.criterion(z)
+        # loss, acc = self.criterionWithMargin(z)
         #计算预测损失
 
         # loss_p, acc_p = self.Pearso(z)
