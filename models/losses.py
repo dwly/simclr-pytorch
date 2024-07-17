@@ -162,7 +162,8 @@ class NTXentWithMargin(nn.Module):
         # assign a LARGE_NUMBER to original positive samples to avoid them contributing to the loss
         logits_with_margin[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
         # 使用带margin的logits重新计算log probability
-        logprob_with_margin = F.log_softmax(logits_with_margin / self.tau, dim=1)
+        # logprob_with_margin = F.log_softmax(logits_with_margin / self.tau, dim=1)
+        logprob_with_margin = F.log_softmax(logits_with_margin, dim=1)
         # 使用带margin的logprob计算损失
         loss = -logprob_with_margin[np.repeat(np.arange(n), m - 1), labels].sum() / n / (m - 1) / self.norm
 
