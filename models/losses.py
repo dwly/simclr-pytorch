@@ -74,21 +74,13 @@ class NTXent(nn.Module):
         logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
         logprob = F.log_softmax(logits, dim=1)
 
-        # 选择每行（除自己）最大的100个相似度
-        # topk_val, topk_idx = torch.topk(logits, k=200, dim=1, sorted=False)
-        topk_val, topk_idx = torch.topk(logits, k=100, dim=1, largest=True, sorted=False)
-        # logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
-        # 去掉自己（最大的那个值，因为设置了-LARGE_NUMBER所以是第一个）
-        # topk_val = topk_val[:, 1:]
-        # topk_idx = topk_idx[:, 1:]
-        # # 利用gather来重建相似度矩阵，只包含topk相似度
-        # logits_topk = torch.zeros_like(logits)
-        # logits_topk.scatter_(1, topk_idx, topk_val)
+        # 选择每行（除自己）最大的k个相似度
+        topk_val, topk_idx = torch.topk(logits, k=n/2, dim=1, largest=True, sorted=False)
 
-        # 初始化logits_topk为非常大的负数，确保softmax时未覆盖值的影响接近于零
-        logits_topk = torch.full_like(logits, -self.LARGE_NUMBER)
-        # 利用scatter_填入topk相似度值
+        # 利用gather来重建相似度矩阵，只包含topk相似度
+        logits_topk = torch.zeros_like(logits)
         logits_topk.scatter_(1, topk_idx, topk_val)
+
         # 用上面的logits_topk计算softmax
         logprob_topk = F.log_softmax(logits_topk, dim=1)
 
