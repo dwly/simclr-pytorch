@@ -75,7 +75,7 @@ class NTXent(nn.Module):
         logprob = F.log_softmax(logits, dim=1)
 
         # 选择每行（除自己）最大的k个相似度
-        topk_val, topk_idx = torch.topk(logits, k=n/2, dim=1, largest=True, sorted=False)
+        topk_val, topk_idx = torch.topk(logits, k=128, dim=1, largest=True, sorted=False)
 
         # 利用gather来重建相似度矩阵，只包含topk相似度
         logits_topk = torch.zeros_like(logits)
