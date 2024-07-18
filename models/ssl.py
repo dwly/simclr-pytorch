@@ -171,6 +171,11 @@ class SimCLR(BaseSSL):
             multiplier=hparams.multiplier,
             distributed=(hparams.dist == 'ddp'),
         )
+        self.criterionWithSemiHard = models.losses.NTXentWithSemiHard(
+            tau=hparams.temperature,
+            multiplier=hparams.multiplier,
+            distributed=(hparams.dist == 'ddp'),
+        )
         self.Pearso = models.losses.Pearso(
             tau=hparams.temperature,
             multiplier=hparams.multiplier,
@@ -217,6 +222,7 @@ class SimCLR(BaseSSL):
         # pre2,z2 = self.model(x[1])
         # pred_loss = self.prediction_loss(pre0,z1)+self.prediction_loss(pre1,z0)
         loss, acc = self.criterion(z)
+        # loss, acc = self.criterionWithSemiHard(z)
         # loss, acc = self.criterionWithMargin(z)
         #计算预测损失
 
