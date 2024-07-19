@@ -212,14 +212,11 @@ class SimCLR(BaseSSL):
         x, _ = batch
         z = self.model(x)
         # pre,z = self.model(x)
-        # import train
-        # if train.args.gpu is not None:
-        # z0 = z[0].cuda(0, non_blocking=True)
-        # z1 = z[1].cuda(0, non_blocking=True)
-        # pre0 = pre[0].cuda(0, non_blocking=True)
-        # pre1 = pre[1].cuda(0, non_blocking=True)
-        # pre1,z1 = self.model(x[0])
-        # pre2,z2 = self.model(x[1])
+        # if self.hparams.gpu is not None:
+        #     x0 = x[0::2].cuda(self.hparams.gpu, non_blocking=True)
+        #     x1 = x[1::2].cuda(self.hparams.gpu, non_blocking=True)
+        # pre0,z0 = self.model(x0)
+        # pre1,z1 = self.model(x1)
         # pred_loss = self.prediction_loss(pre0,z1)+self.prediction_loss(pre1,z0)
         # loss, acc = self.criterion(z)
         # loss, acc = self.criterionWithSemiHard(z)

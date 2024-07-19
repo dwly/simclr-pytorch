@@ -148,7 +148,7 @@ class NTXentWithMargin(nn.Module):
         labels = (np.repeat(np.arange(n), m) + np.tile(np.arange(m) * n//m, n)) % n
         # remove labels pointet to itself, i.e. (i, i)
         labels = labels.reshape(n, m)[:, 1:].reshape(-1)
-        margin = 0.5
+        margin = 0.3
         # calculate the new logits with margin
         logits_with_margin = logits - margin  # subtract margin value from all logits
         # assign a LARGE_NUMBER to original positive samples to avoid them contributing to the loss
