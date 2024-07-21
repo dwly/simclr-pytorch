@@ -43,18 +43,18 @@ class EncodeProject(nn.Module):
 
         self.projection = nn.Sequential(OrderedDict(projection_layers))
 
-        # dim = 128
-        # pred_dim = 128
-        # self.predictor = nn.Sequential(nn.Linear(dim, pred_dim, bias=False),
-        #                                nn.BatchNorm1d(pred_dim),
-        #                                nn.ReLU(inplace=True),  # hidden layer
-        #                                nn.Linear(pred_dim, dim))  # output layer
+        dim = 128
+        pred_dim = 128
+        self.predictor = nn.Sequential(nn.Linear(dim, pred_dim, bias=False),
+                                       nn.BatchNorm1d(pred_dim),
+                                       nn.ReLU(inplace=True),  # hidden layer
+                                       nn.Linear(pred_dim, dim))  # output layer
 
     def forward(self, x, out='z'):
         h = self.convnet(x)
         if out == 'h':
             return h
-        return self.projection(h)
-        # pro = self.projection(h)
-        # pre = self.predictor(pro)
-        # return pre,self.projection(h)
+        # return self.projection(h)
+        pro = self.projection(h)
+        pre = self.predictor(pro)
+        return pre,self.projection(h)

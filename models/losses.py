@@ -209,16 +209,19 @@ class NTXentWithSemiHard(nn.Module):
         logprob = F.log_softmax(logits, dim=1)
 
         # 选择每行最大的K个相似度
-        topk_val, topk_idx = torch.topk(logits, k=n/4, dim=1, largest=True, sorted=False)
+        topk_val, topk_idx = torch.topk(logits, k=0, dim=1, largest=True, sorted=False)
         # 选择每行最小的K个相似度
-        bottk_val, bottk_idx = torch.topk(logits, k=n/4, dim=1, largest=False, sorted=False)
+        bottk_val, bottk_idx = torch.topk(logits, k=0, dim=1, largest=False, sorted=False)
 
-        logits_semik = logits.data.clone()
-        # logits_semik.scatter_(1,topk_idx,0)
-        # logits_semik.scatter_(1,bottk_idx,0)
+        # logits_semik = logits.data.clone().requires_grad_()
+        logits_semik = logits
+        # logits_semik.scatter_(1, topk_idx, 0)
+        logits_semik.scatter_(1, topk_idx, 0)
+        # logits_semik.scatter_(1, bottk_idx, 0)
+        logits_semik.scatter_(1, bottk_idx, 0)
 
-        logits_semik.scatter_(1, topk_idx, -self.LARGE_NUMBER)
-        logits_semik.scatter_(1, bottk_idx, -self.LARGE_NUMBER)
+        # logits_semik.scatter_(1, topk_idx, -self.LARGE_NUMBER)
+        # logits_semik.scatter_(1, bottk_idx, -self.LARGE_NUMBER)
 
         # 用上面的logits_semik计算softmax
         logprob_semik = F.log_softmax(logits_semik, dim=1)
@@ -373,23 +376,13 @@ class Prediction_loss(nn.Module):
     def forward(self, preds, targets, get_map=False):
         n = preds.shape[0]
         assert n % self.multiplier == 0
-        if self.distributed:
-            preds = self.method_distribute(preds)
-            targets = self.method_distribute(targets)
-        # 均值中心化
-        # preds_mean = preds.mean(dim=1, keepdim=True)
-        # targets_mean = targets.mean(dim=1, keepdim=True)
-        #
-        # preds_centered = preds - preds_mean
-        # targets_centered = targets - targets_mean
-        # # 方差归一化
-        # preds_std = preds_centered.std(dim=1, keepdim=True)
-        # targets_std = targets_centered.std(dim=1, keepdim=True)
-        # preds_normalized = preds_centered / (preds_std + 1e-6)  # 添加一个小的值以避免除以零
-        # targets_normalized = targets_centered / (targets_std + 1e-6)
+
+        # if self.distributed:
+        #     preds = self.method_distribute(preds)
+        #     targets = self.method_distribute(targets)
         criterion = nn.MSELoss()
         # return criterion(preds_normalized, targets_normalized.detach())
-        return criterion(preds, targets.detach())
+        return criterion(preds, targets.detach()).to(preds.device)
 
     def method_distribute(self, z):
         z_list = [torch.zeros_like(z) for _ in range(dist.get_world_size())]

@@ -209,23 +209,34 @@ class SimCLR(BaseSSL):
                 linear_normal_init(m.weight)
 
     def step(self, batch):
+        pred_loss = 0
         x, _ = batch
-        z = self.model(x)
-        # pre,z = self.model(x)
+        # z = self.model(x)
+        pre, z = self.model(x)
+        if self.hparams.gpu is not None:
+            pre0 = pre[::2].cuda(self.hparams.gpu, non_blocking=True)
+            pre1 = pre[1::2].cuda(self.hparams.gpu, non_blocking=True)
+            z0 = z[::2].cuda(self.hparams.gpu, non_blocking=True)
+            z1 = z[1::2].cuda(self.hparams.gpu, non_blocking=True)
+            pred_loss = self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)
         # if self.hparams.gpu is not None:
-        #     x0 = x[0::2].cuda(self.hparams.gpu, non_blocking=True)
-        #     x1 = x[1::2].cuda(self.hparams.gpu, non_blocking=True)
-        # pre0,z0 = self.model(x0)
-        # pre1,z1 = self.model(x1)
-        # pred_loss = self.prediction_loss(pre0,z1)+self.prediction_loss(pre1,z0)
-        # loss, acc = self.criterion(z)
+            # x0 = x[0::2].cuda(self.hparams.gpu, non_blocking=True)
+            # x00 = x[0]
+            # x0 = x[0].unsqueeze(0).cuda(self.hparams.gpu, non_blocking=True)
+            # x1 = x[1::2].cuda(self.hparams.gpu, non_blocking=True)
+            # x11 = x[1]
+            # x1 = x[1].unsqueeze(0).cuda(self.hparams.gpu, non_blocking=True)
+        # pre0, z0 = self.model(x0)
+        # pre1, z1 = self.model(x1)
+
+        loss, acc = self.criterion(z)
         # loss, acc = self.criterionWithSemiHard(z)
-        loss, acc = self.criterionWithMargin(z)
+        # loss, acc = self.criterionWithMargin(z)
         #计算预测损失
 
         # loss_p, acc_p = self.Pearso(z)
         # loss = 0.99 * loss + 0.01 * loss_p
-        # loss = loss + 0.6 * pred_loss
+        loss = loss + 0.3 * pred_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
