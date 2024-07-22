@@ -236,7 +236,7 @@ class SimCLR(BaseSSL):
 
         # loss_p, acc_p = self.Pearso(z)
         # loss = 0.99 * loss + 0.01 * loss_p
-        loss = loss + 0.3 * pred_loss
+        loss = loss + 0.1 * pred_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
