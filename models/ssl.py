@@ -78,7 +78,8 @@ class BaseSSL(nn.Module):
         if self.hparams.data == 'cifar':
             self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=train_transform)
             if self.hparams.problem == 'sim-clr':
-                self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=models.loader.TwoCropsTransform(train_transform))
+                # self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=models.loader.TwoCropsTransform(train_transform))
+                self.trainset = loader.ContrastiveCIFAR10Dataset(root=self.DATA_ROOT, train=True, download=True, transform=train_transform)
             self.testset = datasets.CIFAR10(root=self.DATA_ROOT, train=False, download=True, transform=test_transform)
         elif self.hparams.data == 'imagenet':
             traindir = os.path.join(self.IMAGENET_PATH, 'train')
@@ -92,11 +93,11 @@ class BaseSSL(nn.Module):
 
     def dataloaders(self, iters=None):
         train_batch_sampler, test_batch_sampler = self.samplers()
-        if iters is not None:
-            train_batch_sampler = datautils.ContinousSampler(
-                train_batch_sampler,
-                iters
-            )
+        # if iters is not None:
+        #     train_batch_sampler = datautils.ContinousSampler(
+        #         train_batch_sampler,
+        #         iters
+        #     )
 
         train_loader = torch.utils.data.DataLoader(
             self.trainset,
@@ -293,18 +294,22 @@ class SimCLR(BaseSSL):
             trainsampler = torch.utils.data.sampler.RandomSampler(self.trainset)
             testsampler = torch.utils.data.sampler.RandomSampler(self.testset)
 
-        batch_sampler = datautils.MultiplyBatchSampler
-        # batch_sampler.MULTILPLIER = self.hparams.multiplier if self.hparams.dist == 'dp' else 1
-        batch_sampler.MULTILPLIER = self.hparams.multiplier
-
-        # need for DDP to sync samplers between processes
-        self.trainsampler = trainsampler
-        self.batch_trainsampler = batch_sampler(trainsampler, self.hparams.batch_size, drop_last=True)
-
-        return (
-            self.batch_trainsampler,
-            batch_sampler(testsampler, self.hparams.batch_size, drop_last=True)
-        )
+        # batch_sampler = datautils.MultiplyBatchSampler
+        # # batch_sampler.MULTILPLIER = self.hparams.multiplier if self.hparams.dist == 'dp' else 1
+        # batch_sampler.MULTILPLIER = self.hparams.multiplier
+        #
+        # # need for DDP to sync samplers between processes
+        # self.trainsampler = trainsampler
+        # self.batch_trainsampler = batch_sampler(trainsampler, self.hparams.batch_size, drop_last=True)
+        #
+        # return (
+        #     self.batch_trainsampler,
+        #     batch_sampler(testsampler, self.hparams.batch_size, drop_last=True)
+        # )
+        # 使用标准的 BatchSampler
+        train_batch_sampler = torch.utils.data.sampler.BatchSampler(trainsampler, self.hparams.batch_size, drop_last=True)
+        test_batch_sampler = torch.utils.data.sampler.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
+        return train_batch_sampler, test_batch_sampler
 
     def transforms(self):
         if self.hparams.data == 'cifar':
