@@ -74,15 +74,15 @@ class NTXent(nn.Module):
         logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
         logprob = F.log_softmax(logits, dim=1)
 
-        # 选择每行（除自己）最大的k个相似度
-        topk_val, topk_idx = torch.topk(logits, k=128, dim=1, largest=True, sorted=False)
-
-        # 利用gather来重建相似度矩阵，只包含topk相似度
-        logits_topk = torch.zeros_like(logits)
-        logits_topk.scatter_(1, topk_idx, topk_val)
-
-        # 用上面的logits_topk计算softmax
-        logprob_topk = F.log_softmax(logits_topk, dim=1)
+        # # 选择每行（除自己）最大的k个相似度
+        # topk_val, topk_idx = torch.topk(logits, k=128, dim=1, largest=True, sorted=False)
+        #
+        # # 利用gather来重建相似度矩阵，只包含topk相似度
+        # logits_topk = torch.zeros_like(logits)
+        # logits_topk.scatter_(1, topk_idx, topk_val)
+        #
+        # # 用上面的logits_topk计算softmax
+        # logprob_topk = F.log_softmax(logits_topk, dim=1)
 
         # choose all positive objects for an example, for i it would be (i + k * n/m), where k=0...(m-1)
         m = self.multiplier
@@ -91,7 +91,7 @@ class NTXent(nn.Module):
         labels = labels.reshape(n, m)[:, 1:].reshape(-1)
 
         # TODO: maybe different terms for each process should only be computed here...
-        loss = -logprob_topk[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
+        loss = -logprob[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
 
         # zero the probability of identical pairs
         pred = logprob.data.clone()
