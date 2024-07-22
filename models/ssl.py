@@ -77,11 +77,15 @@ class BaseSSL(nn.Module):
         # print('The following test transform is used:\n', test_transform)
         if self.hparams.data == 'cifar':
             self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=train_transform)
+            if self.hparams.problem == 'sim-clr':
+                self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=models.loader.TwoCropsTransform(train_transform))
             self.testset = datasets.CIFAR10(root=self.DATA_ROOT, train=False, download=True, transform=test_transform)
         elif self.hparams.data == 'imagenet':
             traindir = os.path.join(self.IMAGENET_PATH, 'train')
             valdir = os.path.join(self.IMAGENET_PATH, 'val')
-            self.trainset = datasets.ImageFolder(traindir, transform=train_transform)
+            self.trainset = datasets.ImageFolder(traindir, transform=test_transform)
+            if self.hparams.problem == 'sim-clr':
+                self.trainset = datasets.ImageFolder(traindir, transform=models.loader.TwoCropsTransform(train_transform))
             self.testset = datasets.ImageFolder(valdir, transform=test_transform)
         else:
             raise NotImplementedError
@@ -98,6 +102,7 @@ class BaseSSL(nn.Module):
             self.trainset,
             num_workers=self.hparams.workers,
             pin_memory=True,
+            shuffle=(train_batch_sampler is None),
             batch_sampler=train_batch_sampler,
         )
         test_loader = torch.utils.data.DataLoader(
@@ -219,15 +224,8 @@ class SimCLR(BaseSSL):
             z0 = z[::2].cuda(self.hparams.gpu, non_blocking=True)
             z1 = z[1::2].cuda(self.hparams.gpu, non_blocking=True)
             pred_loss = self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)
-        # if self.hparams.gpu is not None:
-            # x0 = x[0::2].cuda(self.hparams.gpu, non_blocking=True)
-            # x00 = x[0]
-            # x0 = x[0].unsqueeze(0).cuda(self.hparams.gpu, non_blocking=True)
-            # x1 = x[1::2].cuda(self.hparams.gpu, non_blocking=True)
-            # x11 = x[1]
-            # x1 = x[1].unsqueeze(0).cuda(self.hparams.gpu, non_blocking=True)
-        # pre0, z0 = self.model(x0)
-        # pre1, z1 = self.model(x1)
+        pre00, z00 = self.model(x[0])
+        pre11, z11 = self.model(x[1])
 
         loss, acc = self.criterion(z)
         # loss, acc = self.criterionWithSemiHard(z)
