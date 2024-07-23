@@ -19,6 +19,7 @@ from utils.lars_optimizer import LARS
 import scipy
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
+from models import loader
 
 import copy
 from diffdist import extra_collectives
@@ -78,27 +79,25 @@ class BaseSSL(nn.Module):
         if self.hparams.data == 'cifar':
             self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=train_transform)
             if self.hparams.problem == 'sim-clr':
-                # self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=models.loader.TwoCropsTransform(train_transform))
-                self.trainset = loader.ContrastiveCIFAR10Dataset(root=self.DATA_ROOT, train=True, download=True, transform=train_transform)
+                self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=loader.TwoCropsTransform(train_transform))
             self.testset = datasets.CIFAR10(root=self.DATA_ROOT, train=False, download=True, transform=test_transform)
         elif self.hparams.data == 'imagenet':
             traindir = os.path.join(self.IMAGENET_PATH, 'train')
             valdir = os.path.join(self.IMAGENET_PATH, 'val')
             self.trainset = datasets.ImageFolder(traindir, transform=test_transform)
             if self.hparams.problem == 'sim-clr':
-                self.trainset = datasets.ImageFolder(traindir, transform=models.loader.TwoCropsTransform(train_transform))
+                self.trainset = datasets.ImageFolder(traindir, transform=loader.TwoCropsTransform(train_transform))
             self.testset = datasets.ImageFolder(valdir, transform=test_transform)
         else:
             raise NotImplementedError
 
     def dataloaders(self, iters=None):
         train_batch_sampler, test_batch_sampler = self.samplers()
-        # if iters is not None:
-        #     train_batch_sampler = datautils.ContinousSampler(
-        #         train_batch_sampler,
-        #         iters
-        #     )
-
+        if iters is not None:
+            train_batch_sampler = datautils.ContinousSampler(
+                train_batch_sampler,
+                iters
+            )
         train_loader = torch.utils.data.DataLoader(
             self.trainset,
             num_workers=self.hparams.workers,
@@ -225,8 +224,8 @@ class SimCLR(BaseSSL):
             z0 = z[::2].cuda(self.hparams.gpu, non_blocking=True)
             z1 = z[1::2].cuda(self.hparams.gpu, non_blocking=True)
             pred_loss = self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)
-        pre00, z00 = self.model(x[0])
-        pre11, z11 = self.model(x[1])
+        # pre00, z00 = self.model(x[0])
+        # pre11, z11 = self.model(x[1])
 
         loss, acc = self.criterion(z)
         # loss, acc = self.criterionWithSemiHard(z)
@@ -294,6 +293,18 @@ class SimCLR(BaseSSL):
             trainsampler = torch.utils.data.sampler.RandomSampler(self.trainset)
             testsampler = torch.utils.data.sampler.RandomSampler(self.testset)
 
+        self.trainsampler = trainsampler
+        self.batch_trainsampler = torch.utils.data.BatchSampler(
+            self.trainsampler,
+            batch_size=self.hparams.batch_size, drop_last=False,
+        )
+        return (
+            self.batch_trainsampler,
+            torch.utils.data.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
+        )
+        # if iters is not None:
+        #     trainsampler = datautils.ContinousSampler(trainsampler, iters)
+
         # batch_sampler = datautils.MultiplyBatchSampler
         # # batch_sampler.MULTILPLIER = self.hparams.multiplier if self.hparams.dist == 'dp' else 1
         # batch_sampler.MULTILPLIER = self.hparams.multiplier
@@ -306,10 +317,10 @@ class SimCLR(BaseSSL):
         #     self.batch_trainsampler,
         #     batch_sampler(testsampler, self.hparams.batch_size, drop_last=True)
         # )
-        # 使用标准的 BatchSampler
-        train_batch_sampler = torch.utils.data.sampler.BatchSampler(trainsampler, self.hparams.batch_size, drop_last=True)
-        test_batch_sampler = torch.utils.data.sampler.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
-        return train_batch_sampler, test_batch_sampler
+        # # 使用标准的 BatchSampler
+        # train_batch_sampler = torch.utils.data.sampler.BatchSampler(trainsampler, self.hparams.batch_size, drop_last=True)
+        # test_batch_sampler = torch.utils.data.sampler.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
+        # return train_batch_sampler, test_batch_sampler
 
     def transforms(self):
         if self.hparams.data == 'cifar':

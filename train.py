@@ -163,8 +163,8 @@ def main_worker(gpu, ngpus, args):
         start_time = time.time()
         for _, batch in enumerate(train_loader):
             cur_iter += 1
-
-            batch = [x.to(device) for x in batch]
+            batch = torch.cat([torch.stack(x).to(device) for x in batch], dim=0)
+            # batch = [x.to(device) for x in batch]
             data_time += time.time() - start_time
 
             logs = {}
