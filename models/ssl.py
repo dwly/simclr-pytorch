@@ -77,17 +77,22 @@ class BaseSSL(nn.Module):
         # print('The following train transform is used:\n', train_transform)
         # print('The following test transform is used:\n', test_transform)
         if self.hparams.data == 'cifar':
-            self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=train_transform)
+            self.testset = datasets.CIFAR10(root=self.DATA_ROOT, train=False, download=True, transform=test_transform)
             if self.hparams.problem == 'sim-clr':
                 self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=loader.TwoCropsTransform(train_transform))
-            self.testset = datasets.CIFAR10(root=self.DATA_ROOT, train=False, download=True, transform=test_transform)
+            else:
+                self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True,transform=train_transform)
+                # self.testset = datasets.CIFAR10(root=self.DATA_ROOT, train=False, download=True, transform=loader.TwoCropsTransform(train_transform))
         elif self.hparams.data == 'imagenet':
             traindir = os.path.join(self.IMAGENET_PATH, 'train')
             valdir = os.path.join(self.IMAGENET_PATH, 'val')
-            self.trainset = datasets.ImageFolder(traindir, transform=test_transform)
+            self.testset = datasets.ImageFolder(valdir, transform=test_transform)
             if self.hparams.problem == 'sim-clr':
                 self.trainset = datasets.ImageFolder(traindir, transform=loader.TwoCropsTransform(train_transform))
-            self.testset = datasets.ImageFolder(valdir, transform=test_transform)
+                # self.testset = datasets.ImageFolder(valdir, transform=loader.TwoCropsTransform(train_transform))
+            else:
+                self.trainset = datasets.ImageFolder(traindir, transform=test_transform)
+
         else:
             raise NotImplementedError
 
@@ -298,13 +303,13 @@ class SimCLR(BaseSSL):
             self.trainsampler,
             batch_size=self.hparams.batch_size, drop_last=False,
         )
+        batch_sampler = datautils.MultiplyBatchSampler
+        batch_sampler.MULTILPLIER = self.hparams.multiplier
         return (
             self.batch_trainsampler,
-            torch.utils.data.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
+            # torch.utils.data.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
+            batch_sampler(testsampler, self.hparams.batch_size, drop_last=True)
         )
-        # if iters is not None:
-        #     trainsampler = datautils.ContinousSampler(trainsampler, iters)
-
         # batch_sampler = datautils.MultiplyBatchSampler
         # # batch_sampler.MULTILPLIER = self.hparams.multiplier if self.hparams.dist == 'dp' else 1
         # batch_sampler.MULTILPLIER = self.hparams.multiplier
