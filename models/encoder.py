@@ -44,7 +44,7 @@ class EncodeProject(nn.Module):
         self.projection = nn.Sequential(OrderedDict(projection_layers))
 
         dim = 128
-        pred_dim = 128
+        pred_dim = 64
         self.predictor = nn.Sequential(nn.Linear(dim, pred_dim, bias=False),
                                        nn.BatchNorm1d(pred_dim),
                                        nn.ReLU(inplace=True),  # hidden layer
@@ -57,4 +57,4 @@ class EncodeProject(nn.Module):
         # return self.projection(h)
         pro = self.projection(h)
         pre = self.predictor(pro)
-        return pre,self.projection(h)
+        return pre, self.projection(h)
