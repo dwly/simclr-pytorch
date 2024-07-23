@@ -236,10 +236,10 @@ class SimCLR(BaseSSL):
         # loss, acc = self.criterionWithSemiHard(z)
         # loss, acc = self.criterionWithMargin(z)
         #计算预测损失
-
         # loss_p, acc_p = self.Pearso(z)
         # loss = 0.99 * loss + 0.01 * loss_p
-        loss = loss + 0.1 * pred_loss
+        if model.training:
+             loss = loss + 0.1 * pred_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
