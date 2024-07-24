@@ -163,8 +163,16 @@ def main_worker(gpu, ngpus, args):
         start_time = time.time()
         for _, batch in enumerate(train_loader):
             cur_iter += 1
+            if cur_iter == 391:
+                print('cur_iter', cur_iter)
             if args.problem == 'sim-clr':
-                batch = torch.cat([torch.stack(x).to(device) for x in batch], dim=0)
+                x, _ = batch
+                x[0] = x[0].cuda(non_blocking=True)
+                x[1] = x[1].cuda(non_blocking=True)
+                batch = torch.cat((x[0], x[1]), dim=0)
+                test = batch[128]
+
+                # batch = torch.cat([torch.stack(x).to(device) for x in batch], dim=0)
             else:
                 batch = [x.to(device) for x in batch]
             data_time += time.time() - start_time

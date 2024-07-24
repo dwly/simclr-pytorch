@@ -219,15 +219,22 @@ class SimCLR(BaseSSL):
                 linear_normal_init(m.weight)
 
     def step(self, batch):
+        # bs = self.hparams.batch_size
+        # if len(batch) < 2 * self.hparams.batch_size:
+        bs = 0
         pred_loss = 0
-        x, _ = batch
+        if self.hparams.problem == 'sim-clr' and self.model.training:
+            bs = batch.shape[0] // 2
+            x = batch
+        else:
+            x, _ = batch
         # z = self.model(x)
         pre, z = self.model(x)
-        if self.hparams.gpu is not None:
-            pre0 = pre[::2].cuda(self.hparams.gpu, non_blocking=True)
-            pre1 = pre[1::2].cuda(self.hparams.gpu, non_blocking=True)
-            z0 = z[::2].cuda(self.hparams.gpu, non_blocking=True)
-            z1 = z[1::2].cuda(self.hparams.gpu, non_blocking=True)
+        if self.model.training and self.hparams.gpu is not None:
+            pre0 = pre[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+            pre1 = pre[bs:].cuda(self.hparams.gpu, non_blocking=True)
+            z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+            z1 = z[bs:].cuda(self.hparams.gpu, non_blocking=True)
             pred_loss = self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)
         # pre00, z00 = self.model(x[0])
         # pre11, z11 = self.model(x[1])
@@ -238,7 +245,7 @@ class SimCLR(BaseSSL):
         #计算预测损失
         # loss_p, acc_p = self.Pearso(z)
         # loss = 0.99 * loss + 0.01 * loss_p
-        if model.training:
+        if self.model.training:
              loss = loss + 0.1 * pred_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
