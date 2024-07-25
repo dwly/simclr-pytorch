@@ -235,7 +235,7 @@ class SimCLR(BaseSSL):
             pre1 = pre[bs:].cuda(self.hparams.gpu, non_blocking=True)
             z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
             z1 = z[bs:].cuda(self.hparams.gpu, non_blocking=True)
-            pred_loss = self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)
+            pred_loss = (self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)) * 0.5
         # pre00, z00 = self.model(x[0])
         # pre11, z11 = self.model(x[1])
 
