@@ -347,18 +347,31 @@ class SimCLR(BaseSSL):
         return img
     def transforms(self):
         if self.hparams.data == 'cifar':
-            train_transform = transforms.Compose([
-                transforms.RandomResizedCrop(
-                    32,
-                    scale=(self.hparams.scale_lower, 1.0),
-                    interpolation=PIL.Image.BICUBIC,
-                ),
-                transforms.RandomHorizontalFlip(),
-                datautils.get_color_distortion(s=self.hparams.color_dist_s),
-                # transforms.RandomApply([transforms.Lambda(self.mask_image)], p=0.5),  # 随机应用掩码增强
-                transforms.ToTensor(),
-                datautils.Clip(),
-            ])
+            if self.model.training:  #只针对simclr训练时的数据集
+                train_transform = transforms.Compose([
+                    transforms.RandomResizedCrop(
+                        32,
+                        scale=(self.hparams.scale_lower, 1.0),
+                        interpolation=PIL.Image.BICUBIC,
+                    ),
+                    transforms.RandomHorizontalFlip(),
+                    datautils.get_color_distortion(s=self.hparams.color_dist_s),
+                    # transforms.RandomApply([transforms.Lambda(self.mask_image)], p=0.5),  #随机应用掩码增强
+                    transforms.ToTensor(),
+                    datautils.Clip(),
+                ])
+            else:
+                train_transform = transforms.Compose([
+                    transforms.RandomResizedCrop(
+                        32,
+                        scale=(self.hparams.scale_lower, 1.0),
+                        interpolation=PIL.Image.BICUBIC,
+                    ),
+                    transforms.RandomHorizontalFlip(),
+                    datautils.get_color_distortion(s=self.hparams.color_dist_s),
+                    transforms.ToTensor(),
+                    datautils.Clip(),
+                ])
             test_transform = train_transform
 
         elif self.hparams.data == 'imagenet':
