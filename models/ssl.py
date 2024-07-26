@@ -196,9 +196,8 @@ class SimCLR(BaseSSL):
             multiplier=hparams.multiplier,
             distributed=(hparams.dist == 'ddp'),
         )
-
-        # self.latt = nn.Conv2d(2048, 128, 1, 1, 0)
-
+        self.simcriterion = nn.CosineSimilarity(dim=1).cuda(self.hparams.gpu)
+        # self.mask_image = self.mask_image()
     def reset_parameters(self):
         def conv2d_weight_truncated_normal_init(p):
             fan_in = p.shape[1]
@@ -236,8 +235,7 @@ class SimCLR(BaseSSL):
             z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
             z1 = z[bs:].cuda(self.hparams.gpu, non_blocking=True)
             pred_loss = (self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)) * 0.5
-        # pre00, z00 = self.model(x[0])
-        # pre11, z11 = self.model(x[1])
+            # pred_loss = -(self.simcriterion(pre0, z1).mean() + self.simcriterion(pre1, z0).mean()) * 0.5
 
         loss, acc = self.criterion(z)
         # loss, acc = self.criterionWithSemiHard(z)
@@ -334,6 +332,19 @@ class SimCLR(BaseSSL):
         # test_batch_sampler = torch.utils.data.sampler.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
         # return train_batch_sampler, test_batch_sampler
 
+    def mask_image(img, num_patches=5, patch_size=0.1):
+        """Apply random square masks to the image."""
+        draw = ImageDraw.Draw(img)
+        width, height = img.size
+        for _ in range(num_patches):
+            upper_left_x = np.random.randint(0, width - patch_size)
+            upper_left_y = np.random.randint(0, height - patch_size)
+            draw.rectangle(
+                (upper_left_x, upper_left_y, upper_left_x + patch_size, upper_left_y + patch_size),
+                fill='black'
+            )
+
+        return img
     def transforms(self):
         if self.hparams.data == 'cifar':
             train_transform = transforms.Compose([
@@ -344,6 +355,7 @@ class SimCLR(BaseSSL):
                 ),
                 transforms.RandomHorizontalFlip(),
                 datautils.get_color_distortion(s=self.hparams.color_dist_s),
+                # transforms.RandomApply([transforms.Lambda(self.mask_image)], p=0.5),  # 随机应用掩码增强
                 transforms.ToTensor(),
                 datautils.Clip(),
             ])
