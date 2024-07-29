@@ -1,13 +1,17 @@
+import random
 from argparse import Namespace, ArgumentParser
 
 import os
 
 import diffdist
 import torch
+from PIL import ImageDraw
 from torch import nn
 from torch.nn import functional as F
 from torchvision import datasets
 import torchvision.transforms as transforms
+
+from models.loader import RandomMask
 from utils import datautils
 import models
 from utils import utils
@@ -244,7 +248,7 @@ class SimCLR(BaseSSL):
         # loss_p, acc_p = self.Pearso(z)
         # loss = 0.99 * loss + 0.01 * loss_p
         if self.model.training:
-             loss = loss + 0.15 * pred_loss
+             loss = loss + 0.13 * pred_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
@@ -332,33 +336,41 @@ class SimCLR(BaseSSL):
         # test_batch_sampler = torch.utils.data.sampler.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
         # return train_batch_sampler, test_batch_sampler
 
-    def mask_image(img, num_patches=5, patch_size=0.1):
-        """Apply random square masks to the image."""
-        draw = ImageDraw.Draw(img)
-        width, height = img.size
-        for _ in range(num_patches):
-            upper_left_x = np.random.randint(0, width - patch_size)
-            upper_left_y = np.random.randint(0, height - patch_size)
-            draw.rectangle(
-                (upper_left_x, upper_left_y, upper_left_x + patch_size, upper_left_y + patch_size),
-                fill='black'
-            )
-
+    # 定义一个顶层的函数，替代之前的 lambda 表达式
+    def apply_random_mask(img, mask_size=(10, 10), num_masks=1):
+        _, H, W = img.size()
+        for _ in range(num_masks):
+            top = random.randint(0, H - mask_size[0])
+            left = random.randint(0, W - mask_size[1])
+            img[:, top:top + mask_size[0], left:left + mask_size[1]] = 0
         return img
     def transforms(self):
         if self.hparams.data == 'cifar':
-            train_transform = transforms.Compose([
-                transforms.RandomResizedCrop(
-                    32,
-                    scale=(self.hparams.scale_lower, 1.0),
-                    interpolation=PIL.Image.BICUBIC,
-                ),
-                transforms.RandomHorizontalFlip(),
-                datautils.get_color_distortion(s=self.hparams.color_dist_s),
-                # transforms.RandomApply([transforms.Lambda(self.mask_image)], p=0.5),  # 随机应用掩码增强
-                transforms.ToTensor(),
-                datautils.Clip(),
-            ])
+            if self.model.training:
+                train_transform = transforms.Compose([
+                    transforms.RandomResizedCrop(
+                        32,
+                        scale=(self.hparams.scale_lower, 1.0),
+                        interpolation=PIL.Image.BICUBIC,
+                    ),
+                    transforms.RandomHorizontalFlip(),
+                    datautils.get_color_distortion(s=self.hparams.color_dist_s),
+                    transforms.ToTensor(),
+                    RandomMask(mask_size=(1, 1), mask_value=0, num_masks=3),
+                    datautils.Clip(),
+                ])
+            else:
+                train_transform = transforms.Compose([
+                    transforms.RandomResizedCrop(
+                        32,
+                        scale=(self.hparams.scale_lower, 1.0),
+                        interpolation=PIL.Image.BICUBIC,
+                    ),
+                    transforms.RandomHorizontalFlip(),
+                    datautils.get_color_distortion(s=self.hparams.color_dist_s),
+                    transforms.ToTensor(),
+                    datautils.Clip(),
+                ])
             test_transform = train_transform
 
         elif self.hparams.data == 'imagenet':
