@@ -356,7 +356,7 @@ class SimCLR(BaseSSL):
                     transforms.RandomHorizontalFlip(),
                     datautils.get_color_distortion(s=self.hparams.color_dist_s),
                     transforms.ToTensor(),
-                    RandomMask(mask_size=(1, 1), mask_value=0, num_masks=3),
+                    RandomMask(mask_size=(1, 1), mask_value=0, num_masks=7),
                     datautils.Clip(),
                 ])
             else:
