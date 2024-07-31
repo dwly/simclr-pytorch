@@ -222,23 +222,32 @@ class SimCLR(BaseSSL):
                 linear_normal_init(m.weight)
 
     def step(self, batch):
-        # bs = self.hparams.batch_size
-        # if len(batch) < 2 * self.hparams.batch_size:
         bs = 0
         pred_loss = 0
         if self.hparams.problem == 'sim-clr' and self.model.training:
-            bs = batch.shape[0] // 2
-            x = batch
+            bs = batch.shape[0] // 4
+            x = batch[0:2*bs]
+            y = batch[2*bs:]
         else:
             x, _ = batch
         # z = self.model(x)
         pre, z = self.model(x)
+        pre_m, z_m = self.model(y)
         if self.model.training and self.hparams.gpu is not None:
             pre0 = pre[0:bs].cuda(self.hparams.gpu, non_blocking=True)
             pre1 = pre[bs:].cuda(self.hparams.gpu, non_blocking=True)
             z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
             z1 = z[bs:].cuda(self.hparams.gpu, non_blocking=True)
-            pred_loss = (self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)) * 0.5
+
+            pre_m0 = pre_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+            pre_m1 = pre_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
+            z_m0 = z_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+            z_m1 = z_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
+            pred_loss = (self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)) * 0.5 #未掩码的预测损失
+            pred_mask_loss = loss(self.prediction_loss(pre_m0, z_m1) + self.prediction_loss(pre_m1, z_m0)) * 0.5 #掩码的预测损失
+            pred_rec_mask_loss = loss(self.prediction_loss(pre_m0, z0) + self.prediction_loss(pre_m1, z1)) * 0.5 #未掩码与掩码的重建损失
+            pred_mask_across_loss = 0.15*pred_loss + 0.7*pred_rec_mask_loss + 0.15*pred_mask_loss
+
             # pred_loss = -(self.simcriterion(pre0, z1).mean() + self.simcriterion(pre1, z0).mean()) * 0.5
 
         loss, acc = self.criterion(z)
@@ -248,7 +257,8 @@ class SimCLR(BaseSSL):
         # loss_p, acc_p = self.Pearso(z)
         # loss = 0.99 * loss + 0.01 * loss_p
         if self.model.training:
-             loss = loss + 0.13 * pred_loss
+             # loss = loss + 0.13 * pred_loss
+             loss = loss + 0.13 * pred_mask_across_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
@@ -356,8 +366,8 @@ class SimCLR(BaseSSL):
                     transforms.RandomHorizontalFlip(),
                     datautils.get_color_distortion(s=self.hparams.color_dist_s),
                     transforms.ToTensor(),
-                    # RandomMask(mask_size=(1, 1), mask_value=0, num_masks=3),
-                    datautils.Clip(),
+                    # RandomMask(mask_size=(1, 1), mask_value=0, num_masks=7),
+                    # datautils.Clip(),
                 ])
             else:
                 train_transform = transforms.Compose([

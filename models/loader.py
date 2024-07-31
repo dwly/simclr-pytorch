@@ -8,6 +8,8 @@ from PIL import ImageFilter
 import random
 
 from torchvision.transforms import transforms
+from models.loader import RandomMask
+from utils import datautils
 
 
 class TwoCropsTransform:
@@ -15,11 +17,20 @@ class TwoCropsTransform:
 
     def __init__(self, base_transform):
         self.base_transform = base_transform
-
+        self.mask_transform = RandomMask(mask_size=(1, 1), mask_value=0, num_masks=3)
+        self.clip = datautils.Clip()
     def __call__(self, x):
         q = self.base_transform(x)
         k = self.base_transform(x)
-        return [q, k]
+        #增加掩码增强
+        q_m = self.mask_transform(q)
+        k_m = self.mask_transform(k)
+        q = self.clip(q)
+        k = self.clip(k)
+        q_m = self.clip(q_m)
+        k_m = self.clip(k_m)
+
+        return [q, k, q_m, k_m]
 
 
 class GaussianBlur(object):
