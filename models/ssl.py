@@ -225,7 +225,7 @@ class SimCLR(BaseSSL):
         bs = 0
         pred_loss = 0
         if self.hparams.problem == 'sim-clr' and self.model.training:
-            bs = batch.shape[0] // 2
+            bs = batch.shape[0] // 4
             x = batch
         else:
             x, _ = batch
@@ -234,18 +234,24 @@ class SimCLR(BaseSSL):
         # pre_m, z_m = self.model(y)
         if self.model.training and self.hparams.gpu is not None:
             pre0 = pre[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            pre1 = pre[bs:].cuda(self.hparams.gpu, non_blocking=True)
+            pre1 = pre[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
+
             z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            z1 = z[bs:].cuda(self.hparams.gpu, non_blocking=True)
+            z1 = z[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
+
+            pre2 = pre[2 * bs:3 * bs].cuda(self.hparams.gpu, non_blocking=True)
+            pre3 = pre[3 * bs:].cuda(self.hparams.gpu, non_blocking=True)
+            z2 = z[2*bs:3*bs].cuda(self.hparams.gpu, non_blocking=True)
+            z3 = z[3*bs:].cuda(self.hparams.gpu, non_blocking=True)
 
             # pre_m0 = pre_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
             # pre_m1 = pre_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
             # z_m0 = z_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
             # z_m1 = z_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
             pred_loss = (self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)) * 0.5 #未掩码的预测损失
-            # pred_mask_loss = (self.prediction_loss(pre_m0, z_m1) + self.prediction_loss(pre_m1, z_m0)) * 0.5 #掩码的预测损失
-            # pred_rec_mask_loss = (self.prediction_loss(pre_m0, z0) + self.prediction_loss(pre_m1, z1)) * 0.5 #未掩码与掩码的重建损失
-            # # pred_mask_across_loss = 0.15 * pred_loss + 0.7 * pred_rec_mask_loss + 0.15 * pred_mask_loss
+            pred_mask_loss = (self.prediction_loss(pre2, z3) + self.prediction_loss(pre3, z2)) * 0.5 #掩码的预测损失
+            pred_rec_mask_loss = (self.prediction_loss(pre2, z0) + self.prediction_loss(pre3, z1)) * 0.5 #未掩码与掩码的重建损失
+            pred_mask_across_loss = 0.15 * pred_loss + 0.7 * pred_rec_mask_loss + 0.15 * pred_mask_loss
             # pred_mask_across_loss = pred_loss + pred_rec_mask_loss + pred_mask_loss
 
             # pred_loss = -(self.simcriterion(pre0, z1).mean() + self.simcriterion(pre1, z0).mean()) * 0.5
@@ -257,8 +263,8 @@ class SimCLR(BaseSSL):
         # loss_p, acc_p = self.Pearso(z)
         # loss = 0.99 * loss + 0.01 * loss_p
         if self.model.training:
-             loss = loss + 0.13 * pred_loss
-             # loss = loss + 0.13 * pred_mask_across_loss
+             # loss = loss + 0.13 * pred_loss
+             loss = loss + 0.13 * pred_mask_across_loss
         # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,

@@ -169,9 +169,9 @@ def main_worker(gpu, ngpus, args):
                 x, _ = batch
                 x[0] = x[0].cuda(non_blocking=True)
                 x[1] = x[1].cuda(non_blocking=True)
-                # x[2] = x[2].cuda(non_blocking=True)
-                # x[3] = x[3].cuda(non_blocking=True)
-                batch = torch.cat((x[0], x[1]), dim=0)
+                x[2] = x[2].cuda(non_blocking=True)
+                x[3] = x[3].cuda(non_blocking=True)
+                batch = torch.cat((x[0], x[1], x[2], x[3]), dim=0)
                 # batch_mask = torch.cat((x[2], x[3]), dim=0)
                 # batch = torch.cat((batch, x[2]), dim=0)
                 # batch = torch.cat((batch, x[3]), dim=0)
