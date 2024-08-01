@@ -172,6 +172,7 @@ def main_worker(gpu, ngpus, args):
                 x[2] = x[2].cuda(non_blocking=True)
                 x[3] = x[3].cuda(non_blocking=True)
                 batch = torch.cat((x[0], x[1], x[2], x[3]), dim=0)
+                # batch = [x.to(device) for x in batch]
                 # batch_mask = torch.cat((x[2], x[3]), dim=0)
                 # batch = torch.cat((batch, x[2]), dim=0)
                 # batch = torch.cat((batch, x[3]), dim=0)
@@ -185,9 +186,6 @@ def main_worker(gpu, ngpus, args):
             logs = {}
             if not args.eval_only:
                 # forward pass and compute loss
-                # if args.problem == 'sim-clr':
-                #     logs = model.train_step_mask(batch,batch_mask, cur_iter)
-                # else:
                 logs = model.train_step(batch, cur_iter)
                 loss = logs['loss']
 
@@ -209,8 +207,6 @@ def main_worker(gpu, ngpus, args):
                 with torch.no_grad():
                     for batch in val_loader:
                         batch = [x.to(device) for x in batch]
-                        # if args.problem == 'sim-clr':
-                        #     batch = torch.cat([torch.stack(x).to(device) for x in batch], dim=0)
                         # forward pass
                         logs = model.test_step(batch)
                         # save logs for the batch

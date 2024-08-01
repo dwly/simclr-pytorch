@@ -376,13 +376,12 @@ class Prediction_loss(nn.Module):
     def forward(self, preds, targets, get_map=False):
         n = preds.shape[0]
         assert n % self.multiplier == 0
-
         # if self.distributed:
         #     preds = self.method_distribute(preds)
         #     targets = self.method_distribute(targets)
         criterion = nn.MSELoss()
-        # return criterion(preds_normalized, targets_normalized.detach())
-        return criterion(preds, targets.detach()).to(preds.device)
+        return criterion(preds, targets.detach())
+        # return criterion(preds, targets.detach()).to(preds.device)
 
     def method_distribute(self, z):
         z_list = [torch.zeros_like(z) for _ in range(dist.get_world_size())]

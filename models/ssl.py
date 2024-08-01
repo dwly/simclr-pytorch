@@ -225,93 +225,48 @@ class SimCLR(BaseSSL):
         bs = 0
         pred_loss = 0
         if self.hparams.problem == 'sim-clr' and self.model.training:
+            # x = batch
             bs = batch.shape[0] // 4
-            x = batch
+            x = batch[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+            y = batch[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
+            k = batch[2*bs:3*bs].cuda(self.hparams.gpu, non_blocking=True)
+            t = batch[3*bs:].cuda(self.hparams.gpu, non_blocking=True)
         else:
             x, _ = batch
         # z = self.model(x)
-        pre, z = self.model(x)
+        pre, z, pre1, z1, pre2, z2, pre3, z3 = self.model(x, y, k, t)
         # pre_m, z_m = self.model(y)
-        if self.model.training and self.hparams.gpu is not None:
-            pre0 = pre[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            pre1 = pre[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
-
-            z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            z1 = z[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
-
-            pre2 = pre[2 * bs:3 * bs].cuda(self.hparams.gpu, non_blocking=True)
-            pre3 = pre[3 * bs:].cuda(self.hparams.gpu, non_blocking=True)
-            z2 = z[2*bs:3*bs].cuda(self.hparams.gpu, non_blocking=True)
-            z3 = z[3*bs:].cuda(self.hparams.gpu, non_blocking=True)
+        # if self.model.training and self.hparams.gpu is not None:
+            # pre0 = pre[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+            # pre1 = pre[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
+            #
+            # z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+            # z1 = z[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
+            #
+            # pre2 = pre[2 * bs:3 * bs].cuda(self.hparams.gpu, non_blocking=True)
+            # pre3 = pre[3 * bs:].cuda(self.hparams.gpu, non_blocking=True)
+            # z2 = z[2*bs:3*bs].cuda(self.hparams.gpu, non_blocking=True)
+            # z3 = z[3*bs:].cuda(self.hparams.gpu, non_blocking=True)
 
             # pre_m0 = pre_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
             # pre_m1 = pre_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
             # z_m0 = z_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
             # z_m1 = z_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
-            pred_loss = (self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)) * 0.5 #未掩码的预测损失
+        if self.model.training and pre1 is not None and z1 is not None and pre2 is not None and z2 is not None and pre3 is not None and z3 is not None:
+            pred_loss = (self.prediction_loss(pre, z1) + self.prediction_loss(pre1, z)) * 0.5 #未掩码的预测损失
             pred_mask_loss = (self.prediction_loss(pre2, z3) + self.prediction_loss(pre3, z2)) * 0.5 #掩码的预测损失
-            pred_rec_mask_loss = (self.prediction_loss(pre2, z0) + self.prediction_loss(pre3, z1)) * 0.5 #未掩码与掩码的重建损失
+            pred_rec_mask_loss = (self.prediction_loss(pre2, z) + self.prediction_loss(pre3, z1)) * 0.5 #未掩码与掩码的重建损失
             pred_mask_across_loss = 0.15 * pred_loss + 0.7 * pred_rec_mask_loss + 0.15 * pred_mask_loss
-            # pred_mask_across_loss = pred_loss + pred_rec_mask_loss + pred_mask_loss
-
             # pred_loss = -(self.simcriterion(pre0, z1).mean() + self.simcriterion(pre1, z0).mean()) * 0.5
+        if self.model.training and pre1 is not None and z1 is not None: #未掩码的z
+            z = torch.cat((z, z1), dim=0)
 
         loss, acc = self.criterion(z)
         # loss, acc = self.criterionWithSemiHard(z)
         # loss, acc = self.criterionWithMargin(z)
-        #计算预测损失
-        # loss_p, acc_p = self.Pearso(z)
-        # loss = 0.99 * loss + 0.01 * loss_p
         if self.model.training:
              # loss = loss + 0.13 * pred_loss
              loss = loss + 0.13 * pred_mask_across_loss
-        # loss = 0.99 * loss + 0.01 * (1-loss_p)
-        return {
-            'loss': loss,
-            'contrast_acc': acc,
-        }
-    def step_mask(self, batch, batch_mask):
-        bs = 0
-        pred_loss = 0
-        pred_mask_across_loss = 0
-        pred_rec_mask_loss = 0
-        if self.hparams.problem == 'sim-clr' and self.model.training:
-            bs = batch.shape[0] // 2
-            x = batch
-            # m = batch_mask
-        else:
-            x, _ = batch
-        # z = self.model(x)
-        pre, z = self.model(x)
-        pre_m, z_m = self.model(batch_mask)
-        if self.model.training and self.hparams.gpu is not None:
-            pre0 = pre[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            pre1 = pre[bs:].cuda(self.hparams.gpu, non_blocking=True)
-            z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            z1 = z[bs:].cuda(self.hparams.gpu, non_blocking=True)
-
-            # pre_m0 = pre_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            # pre_m1 = pre_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
-            # z_m0 = z_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            # z_m1 = z_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
-            pred_loss = (self.prediction_loss(pre0, z1) + self.prediction_loss(pre1, z0)) * 0.5 #未掩码的预测损失
-            # pred_mask_loss = (self.prediction_loss(pre_m0, z_m1) + self.prediction_loss(pre_m1, z_m0)) * 0.5 #掩码的预测损失
-            # pred_rec_mask_loss = (self.prediction_loss(pre_m0, z0) + self.prediction_loss(pre_m1, z1)) * 0.5 #未掩码与掩码的重建损失
-            # pred_mask_across_loss = 0.15 * pred_loss + 0.7 * pred_rec_mask_loss + 0.15 * pred_mask_loss
-            # pred_mask_across_loss = pred_loss + pred_rec_mask_loss +  pred_mask_loss
-
-            # pred_loss = -(self.simcriterion(pre0, z1).mean() + self.simcriterion(pre1, z0).mean()) * 0.5
-
-        loss, acc = self.criterion(z)
-        # loss, acc = self.criterionWithSemiHard(z)
-        # loss, acc = self.criterionWithMargin(z)
-        #计算预测损失
-        # loss_p, acc_p = self.Pearso(z)
-        # loss = 0.99 * loss + 0.01 * loss_p
-        if self.model.training:
-             loss = loss + 0.13 * pred_loss
-             # loss = loss + 0.13 * pred_rec_mask_loss
-        # loss = 0.99 * loss + 0.01 * (1-loss_p)
         return {
             'loss': loss,
             'contrast_acc': acc,

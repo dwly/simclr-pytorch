@@ -50,11 +50,29 @@ class EncodeProject(nn.Module):
                                        nn.ReLU(inplace=True),  # hidden layer
                                        nn.Linear(pred_dim, dim))  # output layer
 
-    def forward(self, x, out='z'):
+    def forward(self, x, y=None, k=None, t=None, out='z'):
+        y_pre = None
+        y_pro = None
+        k_pre = None
+        k_pro = None
+        t_pre = None
+        t_pro = None
         h = self.convnet(x)
         if out == 'h':
             return h
+        if y is not None:
+            y = self.convnet(y)
+            y_pro = self.projection(y)
+            y_pre = self.predictor(y_pro)
+        if k is not None:
+            k = self.convnet(k)
+            k_pro = self.projection(k)
+            k_pre = self.predictor(k_pro)
+        if t is not None:
+            t = self.convnet(t)
+            t_pro = self.projection(t)
+            t_pre = self.predictor(t_pro)
         # return self.projection(h)
         pro = self.projection(h)
         pre = self.predictor(pro)
-        return pre, self.projection(h)
+        return pre, self.projection(h), y_pre, y_pro, k_pre, k_pro, t_pre, t_pro
