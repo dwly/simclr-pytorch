@@ -82,11 +82,12 @@ class BaseSSL(nn.Module):
         # print('The following test transform is used:\n', test_transform)
         if self.hparams.data == 'cifar':
             self.testset = datasets.CIFAR10(root=self.DATA_ROOT, train=False, download=True, transform=test_transform)
-            if self.hparams.problem == 'sim-clr':
-                self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True, transform=loader.TwoCropsTransform(train_transform))
-            else:
-                self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True,transform=train_transform)
-                # self.testset = datasets.CIFAR10(root=self.DATA_ROOT, train=False, download=True, transform=loader.TwoCropsTransform(train_transform))
+            # if self.hparams.problem == 'sim-clr':
+            #     self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True,
+            #                                      transform=loader.TwoCropsTransform(train_transform))
+            # else:
+            self.trainset = datasets.CIFAR10(root=self.DATA_ROOT, train=True, download=True,
+                                                 transform=train_transform)
         elif self.hparams.data == 'imagenet':
             traindir = os.path.join(self.IMAGENET_PATH, 'train')
             valdir = os.path.join(self.IMAGENET_PATH, 'val')
@@ -222,51 +223,57 @@ class SimCLR(BaseSSL):
                 linear_normal_init(m.weight)
 
     def step(self, batch):
+        y = None
+        k = None
+        t = None
         bs = 0
         pred_loss = 0
-        if self.hparams.problem == 'sim-clr' and self.model.training:
-            # x = batch
-            bs = batch.shape[0] // 4
-            x = batch[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            y = batch[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
-            k = batch[2*bs:3*bs].cuda(self.hparams.gpu, non_blocking=True)
-            t = batch[3*bs:].cuda(self.hparams.gpu, non_blocking=True)
-        else:
-            x, _ = batch
-        # z = self.model(x)
+        pred_mask_across_loss = 0
+        # if self.hparams.problem == 'sim-clr' and self.model.training:
+        #     # x = batch
+        #     bs = batch.shape[0] // 4
+        #     x = batch[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     y = batch[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     k = batch[2*bs:3*bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     t = batch[3*bs:].cuda(self.hparams.gpu, non_blocking=True)
+        #
+        # else:
+        x, _ = batch
+            # z = self.model(x)
         pre, z, pre1, z1, pre2, z2, pre3, z3 = self.model(x, y, k, t)
-        # pre_m, z_m = self.model(y)
-        # if self.model.training and self.hparams.gpu is not None:
-            # pre0 = pre[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            # pre1 = pre[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
-            #
-            # z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            # z1 = z[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
-            #
-            # pre2 = pre[2 * bs:3 * bs].cuda(self.hparams.gpu, non_blocking=True)
-            # pre3 = pre[3 * bs:].cuda(self.hparams.gpu, non_blocking=True)
-            # z2 = z[2*bs:3*bs].cuda(self.hparams.gpu, non_blocking=True)
-            # z3 = z[3*bs:].cuda(self.hparams.gpu, non_blocking=True)
-
-            # pre_m0 = pre_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            # pre_m1 = pre_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
-            # z_m0 = z_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
-            # z_m1 = z_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
-        if self.model.training and pre1 is not None and z1 is not None and pre2 is not None and z2 is not None and pre3 is not None and z3 is not None:
-            pred_loss = (self.prediction_loss(pre, z1) + self.prediction_loss(pre1, z)) * 0.5 #未掩码的预测损失
-            pred_mask_loss = (self.prediction_loss(pre2, z3) + self.prediction_loss(pre3, z2)) * 0.5 #掩码的预测损失
-            pred_rec_mask_loss = (self.prediction_loss(pre2, z) + self.prediction_loss(pre3, z1)) * 0.5 #未掩码与掩码的重建损失
-            pred_mask_across_loss = 0.15 * pred_loss + 0.7 * pred_rec_mask_loss + 0.15 * pred_mask_loss
-            # pred_loss = -(self.simcriterion(pre0, z1).mean() + self.simcriterion(pre1, z0).mean()) * 0.5
-        if self.model.training and pre1 is not None and z1 is not None: #未掩码的z
-            z = torch.cat((z, z1), dim=0)
+        # # pre_m, z_m = self.model(y)
+        # # if self.model.training and self.hparams.gpu is not None:
+        #     # pre0 = pre[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     # pre1 = pre[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     #
+        #     # z0 = z[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     # z1 = z[bs:2*bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     #
+        #     # pre2 = pre[2 * bs:3 * bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     # pre3 = pre[3 * bs:].cuda(self.hparams.gpu, non_blocking=True)
+        #     # z2 = z[2*bs:3*bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     # z3 = z[3*bs:].cuda(self.hparams.gpu, non_blocking=True)
+        #
+        #     # pre_m0 = pre_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     # pre_m1 = pre_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
+        #     # z_m0 = z_m[0:bs].cuda(self.hparams.gpu, non_blocking=True)
+        #     # z_m1 = z_m[bs:].cuda(self.hparams.gpu, non_blocking=True)
+        # if (self.model.training and pre1 is not None and z1 is not None and pre2 is not None and z2 is not None and pre3
+        #         is not None and z3 is not None):
+        #     pred_loss = (self.prediction_loss(pre, z1) + self.prediction_loss(pre1, z)) * 0.5 #未掩码的预测损失
+        #     pred_mask_loss = (self.prediction_loss(pre2, z3) + self.prediction_loss(pre3, z2)) * 0.5 #掩码的预测损失
+        #     pred_rec_mask_loss = (self.prediction_loss(pre2, z) + self.prediction_loss(pre3, z1)) * 0.5 #未掩码与掩码的重建损失
+        #     pred_mask_across_loss = 0.15 * pred_loss + 0.7 * pred_rec_mask_loss + 0.15 * pred_mask_loss
+        #     # pred_loss = -(self.simcriterion(pre0, z1).mean() + self.simcriterion(pre1, z0).mean()) * 0.5
+        # if self.model.training and pre1 is not None and z1 is not None: #未掩码的z
+        #     z = torch.cat((z, z1), dim=0)
 
         loss, acc = self.criterion(z)
         # loss, acc = self.criterionWithSemiHard(z)
         # loss, acc = self.criterionWithMargin(z)
-        if self.model.training:
-             # loss = loss + 0.13 * pred_loss
-             loss = loss + 0.13 * pred_mask_across_loss
+        # if self.model.training:
+        #      # loss = loss + 0.13 * pred_loss
+        #      loss = loss + 0.13 * pred_mask_across_loss
         return {
             'loss': loss,
             'contrast_acc': acc,
@@ -334,30 +341,30 @@ class SimCLR(BaseSSL):
             trainsampler = torch.utils.data.sampler.RandomSampler(self.trainset)
             testsampler = torch.utils.data.sampler.RandomSampler(self.testset)
 
-        self.trainsampler = trainsampler
-        self.batch_trainsampler = torch.utils.data.BatchSampler(
-            self.trainsampler,
-            batch_size=self.hparams.batch_size, drop_last=False,
-        )
-        batch_sampler = datautils.MultiplyBatchSampler
-        batch_sampler.MULTILPLIER = self.hparams.multiplier
-        return (
-            self.batch_trainsampler,
-            # torch.utils.data.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
-            batch_sampler(testsampler, self.hparams.batch_size, drop_last=True)
-        )
-        # batch_sampler = datautils.MultiplyBatchSampler
-        # # batch_sampler.MULTILPLIER = self.hparams.multiplier if self.hparams.dist == 'dp' else 1
-        # batch_sampler.MULTILPLIER = self.hparams.multiplier
-        #
-        # # need for DDP to sync samplers between processes
         # self.trainsampler = trainsampler
-        # self.batch_trainsampler = batch_sampler(trainsampler, self.hparams.batch_size, drop_last=True)
-        #
+        # self.batch_trainsampler = torch.utils.data.BatchSampler(
+        #     self.trainsampler,
+        #     batch_size=self.hparams.batch_size, drop_last=False,
+        # )
+        # batch_sampler = datautils.MultiplyBatchSampler
+        # batch_sampler.MULTILPLIER = self.hparams.multiplier
         # return (
         #     self.batch_trainsampler,
+        #     # torch.utils.data.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
         #     batch_sampler(testsampler, self.hparams.batch_size, drop_last=True)
         # )
+        batch_sampler = datautils.MultiplyBatchSampler
+        # batch_sampler.MULTILPLIER = self.hparams.multiplier if self.hparams.dist == 'dp' else 1
+        batch_sampler.MULTILPLIER = self.hparams.multiplier
+
+        # need for DDP to sync samplers between processes
+        self.trainsampler = trainsampler
+        self.batch_trainsampler = batch_sampler(trainsampler, self.hparams.batch_size, drop_last=True)
+
+        return (
+            self.batch_trainsampler,
+            batch_sampler(testsampler, self.hparams.batch_size, drop_last=True)
+        )
         # # 使用标准的 BatchSampler
         # train_batch_sampler = torch.utils.data.sampler.BatchSampler(trainsampler, self.hparams.batch_size, drop_last=True)
         # test_batch_sampler = torch.utils.data.sampler.BatchSampler(testsampler, self.hparams.batch_size, drop_last=True)
@@ -373,31 +380,31 @@ class SimCLR(BaseSSL):
         return img
     def transforms(self):
         if self.hparams.data == 'cifar':
-            if self.model.training:
-                train_transform = transforms.Compose([
-                    transforms.RandomResizedCrop(
-                        32,
-                        scale=(self.hparams.scale_lower, 1.0),
-                        interpolation=PIL.Image.BICUBIC,
-                    ),
-                    transforms.RandomHorizontalFlip(),
-                    datautils.get_color_distortion(s=self.hparams.color_dist_s),
-                    transforms.ToTensor(),
-                    # RandomMask(mask_size=(1, 1), mask_value=0, num_masks=7),
-                    # datautils.Clip(),
-                ])
-            else:
-                train_transform = transforms.Compose([
-                    transforms.RandomResizedCrop(
-                        32,
-                        scale=(self.hparams.scale_lower, 1.0),
-                        interpolation=PIL.Image.BICUBIC,
-                    ),
-                    transforms.RandomHorizontalFlip(),
-                    datautils.get_color_distortion(s=self.hparams.color_dist_s),
-                    transforms.ToTensor(),
-                    datautils.Clip(),
-                ])
+            # if self.model.training:
+            #     train_transform = transforms.Compose([
+            #         transforms.RandomResizedCrop(
+            #             32,
+            #             scale=(self.hparams.scale_lower, 1.0),
+            #             interpolation=PIL.Image.BICUBIC,
+            #         ),
+            #         transforms.RandomHorizontalFlip(),
+            #         datautils.get_color_distortion(s=self.hparams.color_dist_s),
+            #         transforms.ToTensor(),
+            #         # RandomMask(mask_size=(1, 1), mask_value=0, num_masks=7),
+            #         # datautils.Clip(),
+            #     ])
+            # else:
+            train_transform = transforms.Compose([
+                transforms.RandomResizedCrop(
+                    32,
+                    scale=(self.hparams.scale_lower, 1.0),
+                    interpolation=PIL.Image.BICUBIC,
+                ),
+                transforms.RandomHorizontalFlip(),
+                datautils.get_color_distortion(s=self.hparams.color_dist_s),
+                transforms.ToTensor(),
+                datautils.Clip(),
+            ])
             test_transform = train_transform
 
         elif self.hparams.data == 'imagenet':
