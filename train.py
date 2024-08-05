@@ -163,28 +163,24 @@ def main_worker(gpu, ngpus, args):
         start_time = time.time()
         for _, batch in enumerate(train_loader):
             cur_iter += 1
-            # if cur_iter == 10200:
-            #     print('cur_iter', cur_iter)
-            # if cur_iter == 26900:
-            #     print('cur_iter', cur_iter)
-            # if cur_iter == 31400:
-            #     print('cur_iter', cur_iter)
-            # if args.problem == 'sim-clr':
-            #     x, _ = batch
-            #     x[0] = x[0].cuda(non_blocking=True)
-            #     x[1] = x[1].cuda(non_blocking=True)
-            #     x[2] = x[2].cuda(non_blocking=True)
-            #     x[3] = x[3].cuda(non_blocking=True)
-            #     batch = torch.cat((x[0], x[1], x[2], x[3]), dim=0)
-            #     # batch = [x.to(device) for x in batch]
-            #     # batch_mask = torch.cat((x[2], x[3]), dim=0)
-            #     # batch = torch.cat((batch, x[2]), dim=0)
-            #     # batch = torch.cat((batch, x[3]), dim=0)
-            #     # test = batch[128]
-            #     # test1 = batch[256]
-            #     # test2 = batch[384]
-            # else:
-            batch = [x.to(device) for x in batch]
+            if cur_iter == 391:
+                print('cur_iter', cur_iter)
+            if args.problem == 'sim-clr':
+                x, _ = batch
+                x[0] = x[0].cuda(non_blocking=True)
+                x[1] = x[1].cuda(non_blocking=True)
+                x[2] = x[2].cuda(non_blocking=True)
+                x[3] = x[3].cuda(non_blocking=True)
+                batch = torch.cat((x[0], x[1], x[2], x[3]), dim=0)
+                # batch = [x.to(device) for x in batch]
+                # batch_mask = torch.cat((x[2], x[3]), dim=0)
+                # batch = torch.cat((batch, x[2]), dim=0)
+                # batch = torch.cat((batch, x[3]), dim=0)
+                # test = batch[128]
+                # test1 = batch[256]
+                # test2 = batch[384]
+            else:
+                batch = [x.to(device) for x in batch]
             data_time += time.time() - start_time
 
             logs = {}
