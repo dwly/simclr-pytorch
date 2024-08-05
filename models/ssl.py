@@ -224,6 +224,9 @@ class SimCLR(BaseSSL):
     def step(self, batch):
         bs = 0
         pred_loss = 0
+        y = None
+        k = None
+        t = None
         if self.hparams.problem == 'sim-clr' and self.model.training:
             # x = batch
             bs = batch.shape[0] // 4
