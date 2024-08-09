@@ -10,6 +10,7 @@ import random
 from torchvision.transforms import transforms
 # import RandomMask
 from utils import datautils
+from utils.datautils import GaussianBlur
 
 
 class TwoCropsTransform:
@@ -32,18 +33,41 @@ class TwoCropsTransform:
 
         return [q, k, q_m, k_m]
         # return [q, k_m]
+class ImageTwoCropsTransform:
+    """Take two random crops of one image as the query and key."""
 
-
-class GaussianBlur(object):
-    """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
-
-    def __init__(self, sigma=[.1, 2.]):
-        self.sigma = sigma
-
+    def __init__(self, base_transform):
+        im_size = 224
+        self.base_transform = base_transform
+        self.GaussianBlur = GaussianBlur(im_size // 10, 0.5)
+        self.mask_transform = RandomMask(mask_size=(1, 1), mask_value=0, num_masks=5)
+        self.clip = datautils.Clip()
     def __call__(self, x):
-        sigma = random.uniform(self.sigma[0], self.sigma[1])
-        x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
-        return x
+        q = self.base_transform(x)
+        k = self.base_transform(x)
+        q = self.GaussianBlur(q)
+        k = self.GaussianBlur(k)
+        #增加掩码增强
+        q_m = self.mask_transform(q)
+        k_m = self.mask_transform(k)
+        q = self.clip(q)
+        k = self.clip(k)
+        q_m = self.clip(q_m)
+        k_m = self.clip(k_m)
+
+        return [q, k, q_m, k_m]
+
+
+# class GaussianBlur(object):
+#     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
+#
+#     def __init__(self, sigma=[.1, 2.]):
+#         self.sigma = sigma
+#
+#     def __call__(self, x):
+#         sigma = random.uniform(self.sigma[0], self.sigma[1])
+#         x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
+#         return x
 class RandomMask:
     def __init__(self, mask_size=(16, 16), mask_value=0, num_masks=1):
         super().__init__()

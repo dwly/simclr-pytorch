@@ -7,7 +7,7 @@ ckpt_iter: -1
 config_file: null
 data: cifar
 dist: dp
-dist_address: 127.0.0.1:1234
+dist_address: 127.0.0.1:1235
 encode_layer: h
 encoder_ckpt: ''
 eval_freq: 1000

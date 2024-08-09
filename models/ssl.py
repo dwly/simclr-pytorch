@@ -35,7 +35,7 @@ class BaseSSL(nn.Module):
     Similar but lighter and customized version.
     """
     DATA_ROOT = os.environ.get('DATA_ROOT', os.path.dirname(os.path.abspath(__file__)) + '/data')
-    IMAGENET_PATH = os.environ.get('IMAGENET_PATH', '/home/aashukha/imagenet/raw-data/')
+    IMAGENET_PATH = os.environ.get('IMAGENET_PATH', '/home/simclr-pytorch1/models/data/Imagenet')
 
     def __init__(self, hparams):
         super().__init__()
@@ -92,7 +92,7 @@ class BaseSSL(nn.Module):
             valdir = os.path.join(self.IMAGENET_PATH, 'val')
             self.testset = datasets.ImageFolder(valdir, transform=test_transform)
             if self.hparams.problem == 'sim-clr':
-                self.trainset = datasets.ImageFolder(traindir, transform=loader.TwoCropsTransform(train_transform))
+                self.trainset = datasets.ImageFolder(traindir, transform=loader.ImageTwoCropsTransform(train_transform))
                 # self.testset = datasets.ImageFolder(valdir, transform=loader.TwoCropsTransform(train_transform))
             else:
                 self.trainset = datasets.ImageFolder(traindir, transform=test_transform)
@@ -407,18 +407,32 @@ class SimCLR(BaseSSL):
             from utils.datautils import GaussianBlur
 
             im_size = 224
-            train_transform = transforms.Compose([
-                transforms.RandomResizedCrop(
-                    im_size,
-                    scale=(self.hparams.scale_lower, 1.0),
-                    interpolation=PIL.Image.BICUBIC,
-                ),
-                transforms.RandomHorizontalFlip(0.5),
-                datautils.get_color_distortion(s=self.hparams.color_dist_s),
-                transforms.ToTensor(),
-                GaussianBlur(im_size // 10, 0.5),
-                datautils.Clip(),
-            ])
+            if self.model.training:
+                train_transform = transforms.Compose([
+                    transforms.RandomResizedCrop(
+                        im_size,
+                        scale=(self.hparams.scale_lower, 1.0),
+                        interpolation=PIL.Image.BICUBIC,
+                    ),
+                    transforms.RandomHorizontalFlip(0.5),
+                    datautils.get_color_distortion(s=self.hparams.color_dist_s),
+                    transforms.ToTensor(),
+                    # GaussianBlur(im_size // 10, 0.5),
+                    # datautils.Clip(),
+                ])
+            else:
+                train_transform = transforms.Compose([
+                    transforms.RandomResizedCrop(
+                        im_size,
+                        scale=(self.hparams.scale_lower, 1.0),
+                        interpolation=PIL.Image.BICUBIC,
+                    ),
+                    transforms.RandomHorizontalFlip(0.5),
+                    datautils.get_color_distortion(s=self.hparams.color_dist_s),
+                    transforms.ToTensor(),
+                    GaussianBlur(im_size // 10, 0.5),
+                    datautils.Clip(),
+                ])
             test_transform = train_transform
         return train_transform, test_transform
 
