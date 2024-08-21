@@ -103,6 +103,43 @@ class NTXent(nn.Module):
             return loss, acc, _map
 
         return loss, acc
+class Logtis_kl(nn.Module):
+    """
+    Contrastive loss with distributed data parallel support
+    """
+    LARGE_NUMBER = 1e9
+
+    def __init__(self, tau=1., gpu=None, multiplier=2, distributed=False):
+        super().__init__()
+        self.tau = tau
+        self.multiplier = multiplier
+        self.distributed = distributed
+        self.norm = 1.
+
+    def forward(self, z, get_map=False):
+        n = z.shape[0]
+        assert n % self.multiplier == 0
+
+        z = F.normalize(z, p=2, dim=1) / np.sqrt(self.tau)
+
+        if self.distributed:
+            z_list = [torch.zeros_like(z) for _ in range(dist.get_world_size())]
+            # all_gather fills the list as [<proc0>, <proc1>, ...]
+            # TODO: try to rewrite it with pytorch official tools
+            z_list = diffdist.functional.all_gather(z_list, z)
+            # split it into [<proc0_aug0>, <proc0_aug1>, ..., <proc0_aug(m-1)>, <proc1_aug(m-1)>, ...]
+            z_list = [chunk for x in z_list for chunk in x.chunk(self.multiplier)]
+            # sort it to [<proc0_aug0>, <proc1_aug0>, ...] that simply means [<batch_aug0>, <batch_aug1>, ...] as expected below
+            z_sorted = []
+            for m in range(self.multiplier):
+                for i in range(dist.get_world_size()):
+                    z_sorted.append(z_list[i * self.multiplier + m])
+            z = torch.cat(z_sorted, dim=0)
+            n = z.shape[0]
+
+        logits = z @ z.t()
+        logits[np.arange(n), np.arange(n)] = -self.LARGE_NUMBER
+        return logits
 
 class NTXentWithMargin(nn.Module):
     """

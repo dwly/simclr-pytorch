@@ -56,6 +56,7 @@ class ImageTwoCropsTransform:
         k_m = self.clip(k_m)
 
         return [q, k, q_m, k_m]
+        # return [q_m, k_m]
 
 
 # class GaussianBlur(object):
