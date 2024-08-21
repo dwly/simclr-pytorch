@@ -3,6 +3,8 @@ import torch
 import warnings
 import time
 import torch.distributed as dist
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 def timing(f):

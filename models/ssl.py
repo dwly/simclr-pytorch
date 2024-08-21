@@ -29,6 +29,10 @@ import copy
 from diffdist import extra_collectives
 from diffdist import functional
 from diffdist import modules
+
+from utils.utils import KLDiv
+
+
 class BaseSSL(nn.Module):
     """
     Inspired by the PYTORCH LIGHTNING https://pytorch-lightning.readthedocs.io/en/latest/
