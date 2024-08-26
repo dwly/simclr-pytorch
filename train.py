@@ -165,17 +165,17 @@ def main_worker(gpu, ngpus, args):
             cur_iter += 1
             if cur_iter == 391:
                 print('cur_iter', cur_iter)
-            # if args.problem == 'sim-clr':
-            #     x, _ = batch
-            #     x[0] = x[0].cuda(args.gpu, non_blocking=True)
-            #     x[1] = x[1].cuda(args.gpu, non_blocking=True)
-            #     x[2] = x[2].cuda(args.gpu, non_blocking=True)
-            #     x[3] = x[3].cuda(args.gpu, non_blocking=True)
-            #     batch = torch.cat((x[0], x[1], x[2], x[3]), dim=0)
-            #     # batch = torch.cat((x[0], x[1]), dim=0)
-            # else:
-            #     batch = [x.to(device) for x in batch]
-            batch = [x.to(device) for x in batch]
+            if args.problem == 'sim-clr':
+                x, _ = batch
+                x[0] = x[0].cuda(args.gpu, non_blocking=True)
+                x[1] = x[1].cuda(args.gpu, non_blocking=True)
+                x[2] = x[2].cuda(args.gpu, non_blocking=True)
+                x[3] = x[3].cuda(args.gpu, non_blocking=True)
+                batch = torch.cat((x[0], x[1], x[2], x[3]), dim=0)
+                # batch = torch.cat((x[0], x[1]), dim=0)
+            else:
+                batch = [x.to(device) for x in batch]
+            # batch = [x.to(device) for x in batch]
             data_time += time.time() - start_time
 
             logs = {}
