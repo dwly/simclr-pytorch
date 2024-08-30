@@ -127,6 +127,7 @@ class ResNetEncoder(models.resnet.ResNet):
         # 1x1卷积
         m5 = self.toplayer(c5)
         m4 = self.latlayer1(c4)
+
         # m3 = self.latlayer2(c3)
         # m2 = self.latlayer3(c2)
 
@@ -143,7 +144,9 @@ class ResNetEncoder(models.resnet.ResNet):
         #上采样采用转置卷积
         # l4 = self.upsample(m5)
         # t = self.upsample4(m5)
+
         m4 = m4 + self.bnlayer1(self.upsample(m5))
+
         # m4 = m4 + self.upsample_ours(m5)
 
         # m3 = m3 + self.upsample_ours(m4)
@@ -236,9 +239,10 @@ class ResNetEncoder(models.resnet.ResNet):
         # out = self.conv33(l4+l5)
 
         #是否加非线性
-        p5 = self.relu(p5)
-        out = self.avgpool(p5)
-        # out = self.avgpool(c5)
+        # p5 = self.relu(p5)
+        # out = self.avgpool(p5)
+
+        out = self.avgpool(c5)
         out = torch.flatten(out, 1)
         # out = self.fc(out)
 

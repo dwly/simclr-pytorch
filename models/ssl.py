@@ -258,13 +258,15 @@ class SimCLR(BaseSSL):
             x, _ = batch
         # x, _ = batch
         # z = self.model(x)
-        pre, z, pre1, z1, pre2, z2, pre3, z3 = self.model(x, y, k, t)
-        if self.model.training and pre1 is not None and z1 is not None and pre2 is not None and z2 is not None and pre3 is not None and z3 is not None:
-            pred_loss = (self.prediction_loss(pre, z1) + self.prediction_loss(pre1, z)) * 0.5 #未掩码的预测损失
-            pred_mask_loss = (self.prediction_loss(pre2, z3) + self.prediction_loss(pre3, z2)) * 0.5 #掩码的预测损失
-            pred_rec_mask_loss = (self.prediction_loss(pre2, z) + self.prediction_loss(pre3, z1)) * 0.5 #未掩码与掩码的重建损失
-            pred_mask_across_loss = 0.15 * pred_loss + 0.7 * pred_rec_mask_loss + 0.15 * pred_mask_loss
-        if self.model.training and pre1 is not None and z1 is not None: #未掩码的z
+        # pre, z, pre1, z1, pre2, z2, pre3, z3 = self.model(x, y, k, t)
+        z, z1,  z2,  z3 = self.model(x, y, k, t)
+        # if self.model.training and pre1 is not None and z1 is not None and pre2 is not None and z2 is not None and pre3 is not None and z3 is not None:
+        #     pred_loss = (self.prediction_loss(pre, z1) + self.prediction_loss(pre1, z)) * 0.5 #未掩码的预测损失
+        #     pred_mask_loss = (self.prediction_loss(pre2, z3) + self.prediction_loss(pre3, z2)) * 0.5 #掩码的预测损失
+        #     pred_rec_mask_loss = (self.prediction_loss(pre2, z) + self.prediction_loss(pre3, z1)) * 0.5 #未掩码与掩码的重建损失
+        #     pred_mask_across_loss = 0.15 * pred_loss + 0.7 * pred_rec_mask_loss + 0.15 * pred_mask_loss
+        # if self.model.training and pre1 is not None and z1 is not None: #未掩码的z
+        if self.model.training and z is not None and z1 is not None: #未掩码的z
             # pred_loss = -(self.simcriterion(pre, z1).mean() + self.simcriterion(pre1, z).mean()) * 0.5
             z = torch.cat((z, z1), dim=0)
             z_m = torch.cat((z2, z3), dim=0)
@@ -280,7 +282,7 @@ class SimCLR(BaseSSL):
         if self.model.training:
              # loss = loss + 0.13 * pred_loss
              # loss = loss + 0.13 * pred_mask_across_loss
-            loss = loss + loss_m + loss_kl
+            loss = loss + 1.2*loss_m + loss_kl
         return {
             'loss': loss,
             'contrast_acc': acc,

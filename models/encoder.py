@@ -43,36 +43,63 @@ class EncodeProject(nn.Module):
 
         self.projection = nn.Sequential(OrderedDict(projection_layers))
 
-        dim = 128
-        pred_dim = 64
-        self.predictor = nn.Sequential(nn.Linear(dim, pred_dim, bias=False),
-                                       nn.BatchNorm1d(pred_dim),
-                                       nn.ReLU(inplace=True),  # hidden layer
-                                       nn.Linear(pred_dim, dim))  # output layer
+        # dim = 128
+        # pred_dim = 64
+        # self.predictor = nn.Sequential(nn.Linear(dim, pred_dim, bias=False),
+        #                                nn.BatchNorm1d(pred_dim),
+        #                                nn.ReLU(inplace=True),  # hidden layer
+        #                                nn.Linear(pred_dim, dim))  # output layer
+
+        # 初始化动量编码器
+        self.m = 0.999
+        self.encoder_b = self.convnet
+        self.encoder_m = self.convnet
+        for param_b, param_m in zip(
+            self.encoder_b.parameters(), self.encoder_m.parameters()
+        ):
+            param_m.data.copy_(param_b.data)  # initialize
+            param_m.requires_grad = False  # not update by gradient
+
+    @torch.no_grad()
+    def _momentum_update_key_encoder(self):
+        """
+        Momentum update of the key encoder
+        """
+        for param_b, param_m in zip(
+                self.encoder_b.parameters(), self.encoder_m.parameters()
+        ):
+            param_m.data = param_m.data * self.m + param_b.data * (1.0 - self.m)
 
     def forward(self, x, y=None, k=None, t=None, out='z'):
-        y_pre = None
+        # y_pre = None
         y_pro = None
-        k_pre = None
+        # k_pre = None
         k_pro = None
-        t_pre = None
+        # t_pre = None
         t_pro = None
-        h = self.convnet(x)
+        with torch.no_grad():  # no gradient to keys
+            self._momentum_update_key_encoder()  # update the key encoder
+        # h = self.convnet(x)
+        h = self.encoder_b(x)
         if out == 'h':
             return h
         if y is not None:
-            y = self.convnet(y)
+            # y = self.convnet(y)
+            y = self.encoder_m(y)
             y_pro = self.projection(y)
-            y_pre = self.predictor(y_pro)
+            # y_pre = self.predictor(y_pro)
         if k is not None:
-            k = self.convnet(k)
+            # k = self.convnet(k)
+            k = self.encoder_b(k)
             k_pro = self.projection(k)
-            k_pre = self.predictor(k_pro)
+            # k_pre = self.predictor(k_pro)
         if t is not None:
-            t = self.convnet(t)
+            # t = self.convnet(t)
+            t = self.encoder_m(t)
             t_pro = self.projection(t)
-            t_pre = self.predictor(t_pro)
+            # t_pre = self.predictor(t_pro)
         # return self.projection(h)
         pro = self.projection(h)
-        pre = self.predictor(pro)
-        return pre, self.projection(h), y_pre, y_pro, k_pre, k_pro, t_pre, t_pro
+        # pre = self.predictor(pro)
+        # return pre, self.projection(h), y_pre, y_pro, k_pre, k_pro, t_pre, t_pro
+        return self.projection(h), y_pro,  k_pro,  t_pro
