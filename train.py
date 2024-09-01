@@ -188,7 +188,7 @@ def main_worker(gpu, ngpus, args):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-
+                # models.encoder.EncodeProject._momentum_update_key_encoder
             # save logs for the batch
             train_logs.append({k: utils.tonp(v) for k, v in logs.items()})
 
